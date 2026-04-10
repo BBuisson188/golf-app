@@ -4,203 +4,273 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Green Caddie</title>
-  <meta name="theme-color" content="#123524">
+  <meta name="theme-color" content="#1f4a33">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Green Caddie">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="favicon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div id="app">
-  <section id="view-home" class="view active themed">
-    <div class="bg-layer"></div>
-    <div class="surface">
-      <header class="hero-brand">
-        <img src="icon-192.png" class="brand-icon" alt="">
-        <div>
-          <h1>Green Caddie</h1>
-          <p>Simple golf tracking with local storage</p>
+  <div id="app">
+    <section id="view-home" class="view active main-bg">
+      <header class="hero-header">
+        <div class="brand-wrap">
+          <img class="brand-icon" src="favicon.png" alt="">
+          <div>
+            <h1>Green Caddie</h1>
+            <p class="subtle">Golf tracking stored right on your phone</p>
+          </div>
         </div>
       </header>
-      <main class="stack">
-        <button class="action-badge start" data-nav="start-round">Start Round</button>
-        <div class="two-col">
-          <button class="cream-icon-btn" data-nav="history"><span class="btn-icon">📘</span><span>History</span></button>
-          <button class="cream-icon-btn" data-nav="courses"><span class="btn-icon">🏌️</span><span>Courses</span></button>
-        </div>
-        <button class="secondary-badge full" id="resume-draft-btn" data-nav="hole" hidden>Resume Draft Round</button>
-      </main>
-    </div>
-  </section>
 
-  <section id="view-start-round" class="view themed">
-    <div class="bg-layer"></div>
-    <div class="surface">
-      <header class="header-row">
-        <button class="small-btn" data-back>&larr;</button>
-        <div><h2>Start Round</h2><p>Load a saved course or start fresh</p></div>
+      <main class="stack view-pad">
+        <button id="home-start-round-btn" class="image-btn start-round-btn" data-nav="start-round">
+          <img src="asset_start_round.png" alt="Start Round">
+        </button>
+        <div class="home-action-grid">
+          <button id="home-history-btn" class="image-btn compact-image-btn">
+            <img src="asset_scorecard.png" alt="History">
+          </button>
+          <button id="home-courses-btn" class="image-btn compact-image-btn">
+            <img src="asset_home.png" alt="Courses">
+          </button>
+        </div>
+        <button class="secondary text-btn" id="resume-draft-btn" hidden>Resume Draft Round</button>
+      </main>
+    </section>
+
+    <section id="view-start-round" class="view main-bg">
+      <header class="page-header with-back view-pad">
+        <button class="icon-btn glass-btn" data-back>&larr;</button>
+        <div>
+          <h2>Start Round</h2>
+          <p class="subtle">Use a saved course or start fresh</p>
+        </div>
       </header>
-      <main class="stack">
-        <label class="field"><span>Saved Course</span><select id="start-course-select"><option value="">New course / no template</option></select></label>
-        <label class="field"><span>Course Name</span><input id="start-course-name" type="text" placeholder="Course name"></label>
-        <div class="segmented">
+      <main class="stack view-pad">
+        <label class="field frosted">
+          <span>Saved Course</span>
+          <select id="start-course-select">
+            <option value="">New course / no template</option>
+          </select>
+        </label>
+        <label class="field frosted">
+          <span>Course Name</span>
+          <input id="start-course-name" type="text" placeholder="Course name">
+        </label>
+        <div class="segmented frosted">
           <button class="seg" data-holes="9">9 Holes</button>
           <button class="seg active" data-holes="18">18 Holes</button>
         </div>
-        <button id="start-round-btn" class="action-badge start">Start Round</button>
+        <button id="start-round-btn" class="image-btn start-round-btn">
+          <img src="asset_start_round.png" alt="Start Round">
+        </button>
       </main>
-    </div>
-  </section>
+    </section>
 
-  <section id="view-hole" class="view themed hole-screen">
-    <div class="bg-layer muted"></div>
-    <div class="screen-shell">
-      <header class="hole-head">
-        <div class="hole-top">
-          <div class="hole-pill">Hole <span id="hole-number">1</span></div>
-          <label class="inline-field official">Official Yardage <input id="hole-yardage" type="number" min="0" max="999"></label>
-          <label class="inline-field">Par <input id="hole-par" type="number" min="3" max="7"></label>
-          <button id="open-map-btn" class="map-badge">Map</button>
+    <section id="view-hole" class="view main-bg">
+      <header class="page-header compact view-pad">
+        <div class="hole-top-grid">
+          <div class="frost-chip hole-chip">Hole <span id="hole-number">1</span></div>
+          <label class="inline-field frost-chip">Par <input id="hole-par" type="number" min="3" max="7"></label>
+          <label class="inline-field frost-chip wide">Official Yardage <input id="hole-yardage" type="number" min="0" max="999"></label>
+          <button class="image-btn map-top-btn" id="open-map-btn"><img src="asset_map.png" alt="Map"></button>
         </div>
-        <div class="meta-line">Shot <strong id="shot-number">1</strong> <span>•</span> Penalties <strong id="penalties-count">0</strong></div>
+        <div class="hole-meta">
+          <span>Shot <strong id="shot-number">1</strong></span>
+          <span>Penalties: <strong id="penalties-count">0</strong></span>
+        </div>
       </header>
 
-      <main class="stack">
-        <div class="hero-card">
-          <div class="top-row">
-            <button id="current-lie-btn" class="mini-picker">
-              <span class="mini-label">Current Lie</span>
-              <span id="current-lie-display" class="mini-value">Tee</span>
+      <main class="stack view-pad">
+        <div class="card frost-card hole-card">
+          <div class="hole-upper-row">
+            <button id="current-lie-btn" class="current-lie-shell" type="button" aria-label="Current Lie">
+              <img src="asset_current_lie.png" alt="">
+              <span id="current-lie-display" class="current-lie-text">Tee</span>
             </button>
-            <div class="estimate-box">
-              <div class="mini-label">Estimated to pin</div>
-              <div id="estimated-pin-display" class="mini-value">—</div>
+            <div class="pin-estimate-box">
+              <div class="label-title">Estimated: Yards to Pin</div>
+              <div id="estimated-pin-display" class="estimate-value">—</div>
             </div>
           </div>
 
           <div class="manual-row">
-            <label class="manual-text" for="manual-pin-input">Manual: Yards to Pin</label>
-            <input id="manual-pin-input" class="manual-input" type="number" min="0" max="999">
-            <button id="quick-finish-btn" class="quick-badge"><span class="btn-icon">✏️</span><span>Quick Finish Hole</span></button>
+            <label class="manual-pin-wrap">
+              <span>Manual: Yards to Pin</span>
+              <input id="manual-pin-input" type="number" min="0" max="999" placeholder="">
+            </label>
+            <button id="quick-finish-btn" class="image-btn quick-finish-btn"><img src="asset_quick_finish.png" alt="Quick Finish Hole"></button>
           </div>
 
-          <div class="two-col tight">
-            <button id="club-btn" class="picker-card"><span class="mini-label">Club</span><span id="club-display" class="mini-value">Select</span></button>
-            <button id="swing-btn" class="picker-card"><span class="mini-label">Swing Type</span><span id="swing-display" class="mini-value">Select</span></button>
+          <div class="row compact-pickers">
+            <button id="club-btn" class="picker-btn compact-picker">
+              <span class="picker-label">Club</span>
+              <span id="club-display" class="value">Select</span>
+            </button>
+            <button id="swing-btn" class="picker-btn compact-picker">
+              <span class="picker-label">Swing Type</span>
+              <span id="swing-display" class="value">Select</span>
+            </button>
           </div>
 
-          <div id="start-gps-row" class="gps-row" hidden>
+          <div class="gps-row" id="start-gps-row" hidden>
             <span id="start-gps-accuracy" class="gps-chip">GPS ±— yd</span>
-            <button id="refresh-start-gps-btn" class="refresh-btn" title="Refresh GPS">&#x21bb;</button>
+            <button id="refresh-start-gps-btn" class="icon-btn small glass-btn" title="Refresh GPS">&#x21bb;</button>
           </div>
 
-          <div class="hero-hit-wrap">
-            <button id="hit-from-here-btn" class="hero-hit-btn"><span class="hero-hit-symbol">🏌️‍♂️</span><span>Hit From Here</span></button>
+          <div class="hero-slot">
+            <button id="hit-from-here-btn" class="image-btn hero-image-btn">
+              <img src="asset_hit.png" alt="Hit From Here">
+            </button>
+            <button id="ball-is-here-btn" class="hero-ball-btn" hidden>Ball Is Here</button>
           </div>
 
-          <div id="setup-actions" class="two-col tight">
-            <button id="next-shot-setup-btn" class="secondary-badge">Next Shot</button>
-            <button id="undo-shot-btn" class="secondary-badge" hidden>Undo Shot</button>
+          <div class="row pair-row" id="setup-pair-row">
+            <button id="next-shot-setup-btn" class="secondary text-btn slim-btn">Next Shot</button>
+            <button id="undo-shot-btn" class="secondary text-btn slim-btn" hidden>Undo Shot</button>
           </div>
-
-          <div id="waiting-actions" class="stack" hidden>
-            <button id="ball-is-here-btn" class="action-badge slim">Ball Is Here</button>
-            <div class="two-col tight">
-              <button id="next-shot-wait-btn" class="secondary-badge">Next Shot</button>
-              <button id="undo-wait-shot-btn" class="secondary-badge" hidden>Undo Shot</button>
-            </div>
+          <div class="row pair-row" id="wait-pair-row" hidden>
+            <button id="next-shot-wait-btn" class="secondary text-btn slim-btn">Next Shot</button>
+            <button id="undo-wait-shot-btn" class="secondary text-btn slim-btn" hidden>Undo Shot</button>
           </div>
         </div>
 
-        <div class="two-col tight footer-actions">
-          <button id="open-scorecard-btn" class="cream-icon-btn slim"><span class="btn-icon">🗒️</span><span>Scorecard</span></button>
-          <button id="go-home-btn" class="cream-icon-btn slim"><img src="icon-192.png" class="mini-home-icon" alt=""><span>Home</span></button>
+        <div class="row footer-art-row">
+          <button class="image-btn footer-art-btn" id="open-scorecard-btn"><img src="asset_scorecard.png" alt="Scorecard"></button>
+          <button class="image-btn footer-art-btn" id="go-home-btn"><img src="asset_home.png" alt="Home"></button>
         </div>
       </main>
-    </div>
-  </section>
+    </section>
 
-  <section id="view-map" class="view">
-    <header class="header-row map-header">
-      <button id="map-back-btn" class="small-btn">&larr;</button>
-      <div><h2 id="map-title">Hole Map</h2><p id="map-subtitle">Par • Yardage</p></div>
-      <button id="map-settings-btn" class="small-btn">⚙️</button>
-    </header>
-    <main class="map-shell">
-      <div id="map"></div>
-      <div class="map-fabs">
-        <button id="set-pin-btn" class="fab-btn">Set Pin</button>
-        <button id="plan-shot-btn" class="fab-btn">Plan Shot</button>
-        <button id="clear-plan-btn" class="fab-btn">Clear Plan</button>
-        <button id="center-me-btn" class="fab-btn">Center Me</button>
-        <button id="clear-pin-btn" class="fab-btn">Clear Pin</button>
-      </div>
-      <div class="map-card">
-        <div class="two-col">
-          <div><div class="mini-label">Estimated to pin</div><div id="map-estimated-display" class="mini-value">—</div></div>
-          <div><div class="mini-label">Pin</div><div id="map-pin-status" class="mini-value">No pin</div></div>
+    <section id="view-map" class="view main-bg map-view">
+      <header class="page-header with-back compact view-pad safe-top">
+        <button class="icon-btn glass-btn" id="map-back-btn">&larr;</button>
+        <div>
+          <h2 id="map-title">Hole Map</h2>
+          <p id="map-subtitle" class="subtle">Par 4 • Yardage 380</p>
         </div>
-        <div class="two-col">
-          <div><div class="mini-label">Plan 1</div><div id="plan-leg-1" class="mini-value">—</div></div>
-          <div><div class="mini-label">Plan 2</div><div id="plan-leg-2" class="mini-value">—</div></div>
+        <button id="map-settings-btn" class="icon-btn glass-btn settings-btn">&#9881;</button>
+      </header>
+      <main class="map-shell view-pad">
+        <div id="map"></div>
+        <div class="map-fabs">
+          <button id="set-pin-btn" class="secondary fab">Set Pin</button>
+          <button id="plan-shot-btn" class="secondary fab">Plan Shot</button>
+          <button id="clear-plan-btn" class="secondary fab">Clear Plan</button>
+          <button id="center-me-btn" class="secondary fab">Center Me</button>
+          <button id="clear-pin-btn" class="secondary fab">Clear Pin</button>
         </div>
-        <div id="map-mode-text" class="subtle">Tap Set Pin or Plan Shot</div>
+        <div class="map-card card">
+          <div class="row">
+            <div>
+              <div class="label">Estimated to pin</div>
+              <div id="map-estimated-display" class="value">—</div>
+            </div>
+            <div>
+              <div class="label">Pin</div>
+              <div id="map-pin-status" class="value">No pin</div>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <div class="label">Plan 1</div>
+              <div id="plan-leg-1" class="value">—</div>
+            </div>
+            <div>
+              <div class="label">Plan 2</div>
+              <div id="plan-leg-2" class="value">—</div>
+            </div>
+          </div>
+          <div class="subtle" id="map-mode-text">Tap Set Pin or Plan Shot</div>
+        </div>
+      </main>
+    </section>
+
+    <section id="view-scorecard" class="view main-bg">
+      <header class="page-header with-back view-pad">
+        <button class="icon-btn glass-btn" data-back>&larr;</button>
+        <div>
+          <h2>Scorecard</h2>
+          <p class="subtle" id="scorecard-subtitle">Current round</p>
+        </div>
+      </header>
+      <main class="stack view-pad">
+        <div id="scorecard-list" class="card stack frost-card"></div>
+        <button class="secondary text-btn" id="back-to-hole-btn">Back to Current Hole</button>
+      </main>
+    </section>
+
+    <section id="view-history" class="view main-bg">
+      <header class="page-header with-back view-pad">
+        <button class="icon-btn glass-btn" data-back>&larr;</button>
+        <div>
+          <h2>History</h2>
+          <p class="subtle">Local rounds stored on this device</p>
+        </div>
+      </header>
+      <main id="history-list" class="stack view-pad"></main>
+    </section>
+
+    <section id="view-round-detail" class="view main-bg">
+      <header class="page-header with-back view-pad">
+        <button class="icon-btn glass-btn" data-back>&larr;</button>
+        <div>
+          <h2 id="round-detail-title">Round Detail</h2>
+          <p class="subtle" id="round-detail-subtitle"></p>
+        </div>
+      </header>
+      <main class="stack view-pad">
+        <div id="round-detail-holes" class="card stack frost-card"></div>
+        <button id="round-export-btn" class="secondary text-btn">Export JSON</button>
+        <button id="round-save-course-btn" class="secondary text-btn">Save Course</button>
+        <button id="round-delete-btn" class="danger text-btn">Delete Round</button>
+      </main>
+    </section>
+
+    <section id="view-courses" class="view main-bg">
+      <header class="page-header with-back view-pad">
+        <button class="icon-btn glass-btn" data-back>&larr;</button>
+        <div>
+          <h2>Courses</h2>
+          <p class="subtle">Reusable pars, yardages, and last known pins</p>
+        </div>
+      </header>
+      <main class="stack view-pad">
+        <div id="courses-list" class="stack"></div>
+        <button id="new-course-btn" class="secondary text-btn">New Course</button>
+      </main>
+    </section>
+  </div>
+
+  <div id="sheet-overlay" class="sheet-overlay" hidden>
+    <div class="sheet">
+      <div class="sheet-header">
+        <h3 id="sheet-title">Select</h3>
+        <button id="sheet-close" class="icon-btn">&times;</button>
       </div>
-    </main>
-  </section>
-
-  <section id="view-scorecard" class="view simple">
-    <header class="header-row"><button class="small-btn" data-back>&larr;</button><div><h2>Scorecard</h2><p id="scorecard-subtitle">Current round</p></div></header>
-    <div id="scorecard-list" class="stack"></div>
-    <button id="back-to-hole-btn" class="secondary-badge full">Back to Current Hole</button>
-  </section>
-
-  <section id="view-history" class="view simple">
-    <header class="header-row"><button class="small-btn" data-back>&larr;</button><div><h2>History</h2><p>Local rounds stored on this device</p></div></header>
-    <div id="history-list" class="stack"></div>
-  </section>
-
-  <section id="view-round-detail" class="view simple">
-    <header class="header-row"><button class="small-btn" data-back>&larr;</button><div><h2 id="round-detail-title">Round Detail</h2><p id="round-detail-subtitle"></p></div></header>
-    <div id="round-detail-holes" class="stack"></div>
-    <div class="stack">
-      <button id="round-export-btn" class="secondary-badge full">Export JSON</button>
-      <button id="round-save-course-btn" class="secondary-badge full">Save Course</button>
-      <button id="round-delete-btn" class="danger-badge full">Delete Round</button>
+      <div id="sheet-content" class="sheet-content"></div>
     </div>
-  </section>
-
-  <section id="view-courses" class="view simple">
-    <header class="header-row"><button class="small-btn" data-back>&larr;</button><div><h2>Courses</h2><p>Pars, yardages, and last known pins</p></div></header>
-    <div id="courses-list" class="stack"></div>
-    <button id="new-course-btn" class="secondary-badge full">New Course</button>
-  </section>
-</div>
-
-<div id="sheet-overlay" class="overlay" hidden>
-  <div class="sheet">
-    <div class="header-row compact">
-      <h3 id="sheet-title">Select</h3>
-      <button id="sheet-close" class="small-btn">&times;</button>
-    </div>
-    <div id="sheet-content" class="stack"></div>
   </div>
-</div>
 
-<div id="modal-overlay" class="overlay" hidden>
-  <div class="sheet modal">
-    <div class="header-row compact">
-      <h3 id="modal-title">Modal</h3>
-      <button id="modal-close" class="small-btn">&times;</button>
+  <div id="modal-overlay" class="sheet-overlay" hidden>
+    <div class="sheet modal">
+      <div class="sheet-header">
+        <h3 id="modal-title">Modal</h3>
+        <button id="modal-close" class="icon-btn">&times;</button>
+      </div>
+      <div id="modal-content" class="sheet-content"></div>
     </div>
-    <div id="modal-content" class="stack"></div>
   </div>
-</div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="app.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -1,16 +1,22 @@
 # Green Caddie
 
-Static GitHub Pages bundle.
+Static web app bundle for GitHub Pages.
 
-## Deploy
-1. Upload everything in this folder to the root of your GitHub repository.
-2. Leave `index.html` in the repo root.
-3. Enable GitHub Pages from the main branch root.
+## Files
+- `index.html` — main entry page
+- `styles.css` — app styling
+- `app.js` — app logic
+- `manifest.webmanifest` — install metadata
+- `favicon.png`, `icon-512.png`, `apple-touch-icon.png` — icons
 
-## Map tiles
-- Default map: OpenStreetMap
-- Optional satellite: open the map screen, tap the ⚙️ button, and paste your MapTiler API key.
+## Deploy to GitHub Pages
+1. Create a new GitHub repository.
+2. Upload all files from this folder to the repo root.
+3. Make sure `index.html` is in the root.
+4. In GitHub Pages settings, publish from the main branch root.
+5. Open the published URL on your phone and add it to your home screen.
 
-## Storage
-- Rounds and courses are stored locally in the browser on the device.
-- JSON export is available from round history / detail.
+## Notes
+- Data is stored locally in the browser on the device.
+- JSON export is available from History / Round Detail.
+- The map uses OpenStreetMap tiles in this starter version so it works immediately without API keys.
