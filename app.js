@@ -2,6 +2,12 @@
 const STORAGE_KEY = 'green-caddie-data-v1';
 const defaultData = { rounds: [], courses: [], settings: {} };
 let state = loadData();
+state.rounds = (state.rounds || []).map(r=>{
+  if(!r.otherPlayers){
+    r.otherPlayers = { extraCount: 1, names: ['Me','Player 2','Player 3','Player 4'], scores: Array.from({length:3}, ()=>Array.from({length: r.holesCount || r.holes?.length || 18}, ()=>'')) };
+  }
+  return r;
+});
 let navStack = ['home'];
 let activeRoundId = state.settings.activeRoundId || null;
 let currentView = 'home';
@@ -74,7 +80,8 @@ function createRound({courseName, holesCount, sourceCourse=null}){
     holesCount,
     sourceCourseId: sourceCourse?.id || null,
     currentHoleIndex: 0,
-    holes
+    holes,
+    otherPlayers: { extraCount: 1, names: ['Me','Player 2','Player 3','Player 4'], scores: Array.from({length:3}, ()=>Array.from({length: holesCount}, ()=>'')) }
   };
 }
 function createCourseFromRound(round){
@@ -579,39 +586,101 @@ function renderScorecard(){
   const list = document.getElementById('scorecard-list');
   const round = getActiveRound();
   if(!round){ list.innerHTML = '<div class="subtle">No active round.</div>'; return; }
-  const renderCol = (holes, offset=0) => {
-    const rows = holes.map((h,i)=>`
-      <div class="score-row scorecard-row" id="scorecard-row-${i+offset}">
-        <button class="secondary hole-jump" data-hole="${i+offset}">Hole ${h.holeNumber}</button>
-        <label class="inline-field" style="padding:6px 6px">Par <input class="scorecard-par-input" data-hole="${i+offset}" type="number" min="3" max="7" value="${h.par}"></label>
-        <button class="score-pill score-edit" data-hole="${i+offset}">${h.score || '—'}</button>
-      </div>`).join('');
-    const played = holes.filter(h=>h.score != null && h.score !== '');
-    const total = played.reduce((a,h)=>a+(Number(h.score)||0),0);
-    const par = played.reduce((a,h)=>a+(Number(h.par)||0),0);
-    const diff = played.length ? (total-par) : null;
-    const diffText = diff == null ? '—' : `${diff>0?'+':''}${diff}`;
-    return `<div class="card stack frost-card" style="gap:6px">${rows}<div class="score-row"><div>Total</div><div class="score-pill">${played.length ? total : '—'}</div><div class="score-pill">${diffText}</div></div></div>`;
-  };
-  list.innerHTML = `<div class="scorecard-columns">${renderCol(round.holes.slice(0,9),0)}${round.holes.length>9 ? renderCol(round.holes.slice(9),9) : ''}</div>`;
-  list.querySelectorAll('.hole-jump').forEach(btn=>btn.onclick = ()=>{
-    round.currentHoleIndex = Number(btn.dataset.hole);
-    saveData(); showView('hole');
-  });
-  list.querySelectorAll('.score-edit').forEach(btn=>btn.onclick = ()=>{
-    round.currentHoleIndex = Number(btn.dataset.hole);
-    openQuickFinish(Number(btn.textContent) || undefined, true);
-  });
-  list.querySelectorAll('.scorecard-par-input').forEach(inp=>inp.onchange = ()=>{
-    const h = round.holes[Number(inp.dataset.hole)];
-    h.par = Number(inp.value) || h.par;
-    saveData(); renderScorecard();
-  });
-  requestAnimationFrame(()=>{
-    const row = document.getElementById(`scorecard-row-${round.currentHoleIndex}`);
-    row?.scrollIntoView({block:'center', behavior:'smooth'});
-  });
+  state.settings.scorecardMode = state.settings.scorecardMode || 'me';
+  const mode = state.settings.scorecardMode;
+  document.getElementById('scorecard-me-btn').classList.toggle('active', mode==='me');
+  document.getElementById('scorecard-others-btn').classList.toggle('active', mode==='others');
+
+  if(mode === 'me'){
+    const renderCol = (holes, offset=0) => {
+      const rows = holes.map((h,i)=>`
+        <div class="score-line" id="scorecard-row-${i+offset}">
+          <button class="score-hole-btn hole-jump" data-hole="${i+offset}">H${h.holeNumber}</button>
+          <input class="score-par-input scorecard-par-input" data-hole="${i+offset}" type="text" inputmode="numeric" maxlength="1" value="${h.par}">
+          <button class="score-num-btn score-edit" data-hole="${i+offset}">${h.score || '—'}</button>
+        </div>`).join('');
+      const played = holes.filter(h=>h.score != null && h.score !== '');
+      const total = played.reduce((a,h)=>a+(Number(h.score)||0),0);
+      const par = played.reduce((a,h)=>a+(Number(h.par)||0),0);
+      const diff = played.length ? (total-par) : null;
+      const diffText = diff == null ? '—' : `${diff>0?'+':''}${diff}`;
+      return `<div class="scorecard-col">${rows}<div class="score-line"><strong>Total</strong><span>${played.length ? total : '—'}</span><span>${diffText}</span></div></div>`;
+    };
+    list.className = 'stack';
+    list.innerHTML = `<div class="scorecard-list-plain">${renderCol(round.holes.slice(0,9),0)}${round.holes.length>9 ? renderCol(round.holes.slice(9),9) : ''}</div>`;
+    list.querySelectorAll('.hole-jump').forEach(btn=>btn.onclick = ()=>{
+      round.currentHoleIndex = Number(btn.dataset.hole);
+      saveData(); showView('hole');
+    });
+    list.querySelectorAll('.score-edit').forEach(btn=>btn.onclick = ()=>{
+      round.currentHoleIndex = Number(btn.dataset.hole);
+      openQuickFinish(Number(btn.textContent) || undefined, true);
+    });
+    list.querySelectorAll('.scorecard-par-input').forEach(inp=>{
+      inp.onfocus = ()=>inp.select();
+      inp.onclick = ()=>inp.select();
+      inp.oninput = ()=>{
+        inp.value = inp.value.replace(/[^0-9]/g,'').slice(0,1);
+        const h = round.holes[Number(inp.dataset.hole)];
+        if(inp.value) h.par = Number(inp.value);
+        saveData();
+      };
+    });
+    requestAnimationFrame(()=>{
+      const row = document.getElementById(`scorecard-row-${round.currentHoleIndex}`);
+      row?.scrollIntoView({block:'center', behavior:'smooth'});
+    });
+  } else {
+    const op = round.otherPlayers;
+    const cols = Math.max(2, Math.min(4, 1 + (op.extraCount || 1)));
+    const players = Array.from({length:cols}, (_,i)=>i);
+    list.className = 'stack';
+    list.innerHTML = `
+      <div class="other-players-top">
+        <div class="subtle">Scores only. Your score here stays synced with your main round.</div>
+        <div class="player-count-toggle">
+          <button class="secondary other-count ${cols===2?'active':''}" data-count="2">2P</button>
+          <button class="secondary other-count ${cols===3?'active':''}" data-count="3">3P</button>
+          <button class="secondary other-count ${cols===4?'active':''}" data-count="4">4P</button>
+        </div>
+      </div>
+      <div class="other-grid cols-${cols}">
+        ${players.map(i=>{
+          const name = op.names[i] || (i===0 ? 'Me' : `Player ${i+1}`);
+          return `<div class="player-card">
+            <input class="player-name-input" data-player="${i}" type="text" value="${name}">
+            ${round.holes.map((h,hi)=>{
+              const val = i===0 ? (h.score || '') : (op.scores[i-1]?.[hi] || '');
+              return `<div class="player-score-row"><span>H${h.holeNumber}</span><input class="player-score-input" data-player="${i}" data-hole="${hi}" type="text" inputmode="numeric" value="${val}"></div>`;
+            }).join('')}
+          </div>`;
+        }).join('')}
+      </div>`;
+    list.querySelectorAll('.other-count').forEach(btn=>btn.onclick = ()=>{
+      op.extraCount = Number(btn.dataset.count) - 1;
+      saveData();
+      renderScorecard();
+    });
+    list.querySelectorAll('.player-name-input').forEach(inp=>inp.oninput = ()=>{
+      op.names[Number(inp.dataset.player)] = inp.value;
+      saveData();
+    });
+    list.querySelectorAll('.player-score-input').forEach(inp=>{
+      inp.onfocus = ()=>inp.select();
+      inp.onclick = ()=>inp.select();
+      inp.oninput = ()=>{
+        inp.value = inp.value.replace(/[^0-9]/g,'').slice(0,2);
+        const player = Number(inp.dataset.player), holeIdx = Number(inp.dataset.hole);
+        if(player === 0){ round.holes[holeIdx].score = inp.value; }
+        else { op.scores[player-1][holeIdx] = inp.value; }
+        saveData();
+      };
+    });
+  }
+  saveData();
 }
+document.getElementById('scorecard-me-btn').addEventListener('click', ()=>{ state.settings.scorecardMode='me'; saveData(); renderScorecard(); });
+document.getElementById('scorecard-others-btn').addEventListener('click', ()=>{ state.settings.scorecardMode='others'; saveData(); renderScorecard(); });
 
 function renderHistory(){
   const root = document.getElementById('history-list');

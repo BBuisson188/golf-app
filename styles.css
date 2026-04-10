@@ -197,3 +197,37 @@ button:active{transform:scale(.985)}
   #scorecard-list > .scorecard-columns{display:grid !important;grid-template-columns:1fr 1fr !important;gap:8px}
   #scorecard-list > .scorecard-columns .row{flex-direction:column}
 }
+
+.scorecard-compact-card{padding:8px 10px}
+.scorecard-list-plain{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.scorecard-col{background:rgba(255,255,255,.78);border:1px solid var(--line);border-radius:14px;padding:6px 8px}
+.score-line{display:grid;grid-template-columns:auto auto auto;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(77,99,79,.16)}
+.score-line:last-child{border-bottom:none}
+.score-hole-btn{padding:6px 8px;background:transparent;border-radius:8px;box-shadow:none;border:1px solid transparent;text-align:left}
+.score-par-input{width:24px;padding:4px 2px;text-align:center;border:1px solid var(--line);border-radius:8px;background:#fff}
+.score-num-btn{min-width:34px;padding:6px 8px;border-radius:10px;background:#ecf2e6;box-shadow:none}
+.other-players-top{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.player-count-toggle{display:flex;gap:6px}
+.player-count-toggle button{padding:8px 10px;border-radius:10px}
+.other-grid{display:grid;gap:8px}
+.other-grid.cols-2{grid-template-columns:repeat(2,1fr)}
+.other-grid.cols-3{grid-template-columns:repeat(3,1fr)}
+.other-grid.cols-4{grid-template-columns:repeat(4,1fr)}
+.player-card{background:rgba(255,255,255,.78);border:1px solid var(--line);border-radius:14px;padding:8px}
+.player-name-input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px}
+.player-score-row{display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(77,99,79,.16)}
+.player-score-row:last-child{border-bottom:none}
+.player-score-input{width:100%;padding:4px 6px;border:1px solid var(--line);border-radius:8px}
+@media (max-width:520px){
+  .scorecard-list-plain{grid-template-columns:1fr 1fr !important;gap:8px}
+  .score-line{grid-template-columns:auto auto auto;font-size:.92rem}
+  .score-hole-btn{padding:5px 4px}
+  .score-num-btn{min-width:30px;padding:5px 6px}
+  
+}
+
+#scorecard-list{overflow-x:auto; overflow-y:visible; -webkit-overflow-scrolling:touch}
+.scorecard-list-plain{display:flex !important; gap:10px; min-width:max-content}
+.scorecard-list-plain .scorecard-col{width:220px; flex:0 0 220px}
+.other-grid{display:flex !important; gap:8px; min-width:max-content; flex-wrap:nowrap !important}
+.other-grid .player-card{width:180px; flex:0 0 180px}
