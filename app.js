@@ -54,6 +54,13 @@ function setActiveRound(id){
 function getCurrentHole(round){
   return round.holes[round.currentHoleIndex || 0];
 }
+
+function findNextHoleToPlay(round){
+  let lastScored = -1;
+  round.holes.forEach((h,i)=>{ if(h.score != null && h.score !== '') lastScored = i; });
+  const next = Math.min(lastScored + 1, round.holes.length - 1);
+  return next < 0 ? 0 : next;
+}
 function createRound({courseName, holesCount, sourceCourse=null}){
   const holes = Array.from({length: holesCount}, (_,i)=>{
     const sourceHole = sourceCourse?.holes?.[i];
@@ -580,7 +587,7 @@ function openQuickFinish(prefillScore=null, stayOnScorecard=false){
   });
 }
 document.getElementById('open-scorecard-btn').addEventListener('click', ()=>showView('scorecard'));
-document.getElementById('back-to-hole-btn').addEventListener('click', ()=>showView('hole'));
+document.getElementById('back-to-hole-btn').addEventListener('click', ()=>{ const round=getActiveRound(); if(!round) return; round.currentHoleIndex = findNextHoleToPlay(round); saveData(); showView('hole'); });
 
 function renderScorecard(){
   const list = document.getElementById('scorecard-list');
@@ -607,7 +614,7 @@ function renderScorecard(){
       return `<div class="scorecard-col">${rows}<div class="score-line"><strong>Total</strong><span>${played.length ? total : '—'}</span><span>${diffText}</span></div></div>`;
     };
     list.className = 'stack';
-    list.innerHTML = `<div class="scorecard-list-plain">${renderCol(round.holes.slice(0,9),0)}${round.holes.length>9 ? renderCol(round.holes.slice(9),9) : ''}</div>`;
+    list.innerHTML = `<div class="scorecard-list-plain">${renderCol(round.holes.slice(0,9),0,'Front 9')}${round.holes.length>9 ? renderCol(round.holes.slice(9),9,'Total Score') : ''}</div>`;
     list.querySelectorAll('.hole-jump').forEach(btn=>btn.onclick = ()=>{
       round.currentHoleIndex = Number(btn.dataset.hole);
       saveData(); showView('hole');
@@ -651,7 +658,7 @@ function renderScorecard(){
             <input class="player-name-input" data-player="${i}" type="text" value="${name}">
             ${round.holes.map((h,hi)=>{
               const val = i===0 ? (h.score || '') : (op.scores[i-1]?.[hi] || '');
-              return `<div class="player-score-row"><span>H${h.holeNumber}</span><input class="player-score-input" data-player="${i}" data-hole="${hi}" type="text" inputmode="numeric" value="${val}"></div>`;
+              return `<div class="player-score-row"><button class="player-hole-btn hole-jump" data-hole="${hi}">H${h.holeNumber}</button><input class="player-score-input" data-player="${i}" data-hole="${hi}" type="text" inputmode="numeric" value="${val}"></div>`;
             }).join('')}
           </div>`;
         }).join('')}
@@ -675,6 +682,10 @@ function renderScorecard(){
         else { op.scores[player-1][holeIdx] = inp.value; }
         saveData();
       };
+    });
+    list.querySelectorAll('.hole-jump').forEach(btn=>btn.onclick = ()=>{
+      round.currentHoleIndex = Number(btn.dataset.hole);
+      saveData(); showView('hole');
     });
   }
   saveData();

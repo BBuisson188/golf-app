@@ -231,3 +231,9 @@ button:active{transform:scale(.985)}
 .scorecard-list-plain .scorecard-col{width:220px; flex:0 0 220px}
 .other-grid{display:flex !important; gap:8px; min-width:max-content; flex-wrap:nowrap !important}
 .other-grid .player-card{width:180px; flex:0 0 180px}
+
+.home-info-btn{align-self:center;margin-top:8px;width:52px;height:52px;font-size:1.35rem;font-weight:700}
+.score-head{display:grid;grid-template-columns:auto auto auto;gap:6px;padding:0 0 6px;border-bottom:1px solid rgba(77,99,79,.16);font-size:.86rem;color:var(--muted);font-weight:600}
+.score-total-line{display:flex;justify-content:flex-end;gap:18px;padding-top:8px;font-weight:700}
+.score-total-line span:first-child{margin-right:auto}
+.player-hole-btn{background:transparent;border:none;padding:0;text-align:left;color:var(--text);font-weight:600}
