@@ -167,6 +167,7 @@ document.querySelectorAll('[data-nav]').forEach(btn => btn.addEventListener('cli
   showView(target);
 }));
 document.getElementById('go-home-btn').addEventListener('click', ()=>showView('home'));
+document.getElementById('hole-scorecard-btn').addEventListener('click', ()=>showView('scorecard'));
 
 function renderResumeButton(){
   const btn = document.getElementById('resume-draft-btn');
@@ -174,7 +175,7 @@ function renderResumeButton(){
   const show = !!(r && r.status !== 'complete');
   btn.hidden = !show;
   if(show){
-    btn.textContent = `Resume Draft Round • ${r.courseName}`;
+    btn.textContent = `Resume Round • ${r.courseName}`;
     btn.onclick = ()=>showView('hole');
   }
 }
@@ -261,6 +262,9 @@ document.getElementById('hole-yardage').addEventListener('change', e=>{
   const hole = getCurrentHole(getActiveRound());
   hole.holeYardage = e.target.value ? Number(e.target.value) : ''; saveData(); render();
 });
+
+document.getElementById('penalty-plus-btn').addEventListener('click', ()=>{ const hole=getCurrentHole(getActiveRound()); hole.penaltyStrokes=(hole.penaltyStrokes||0)+1; saveData(); render(); });
+document.getElementById('penalty-minus-btn').addEventListener('click', ()=>{ const hole=getCurrentHole(getActiveRound()); hole.penaltyStrokes=Math.max(0,(hole.penaltyStrokes||0)-1); saveData(); render(); });
 
 document.getElementById('current-lie-btn').addEventListener('click', ()=>{
   const round = getActiveRound(); const hole = getCurrentHole(round);
@@ -528,7 +532,7 @@ function goToNextHole(){
   }
 }
 document.getElementById('quick-finish-btn').addEventListener('click', ()=>openQuickFinish());
-function openQuickFinish(prefillScore=null){
+function openQuickFinish(prefillScore=null, stayOnScorecard=false){
   const hole = getCurrentHole(getActiveRound());
   let score = prefillScore || hole.score || Number(hole.par || 4) || 4;
   let putts = hole.puttCount;
@@ -563,7 +567,8 @@ function openQuickFinish(prefillScore=null){
       if(putts != null) hole.puttCount = putts;
       hole.quickFinished = true;
       closeModal();
-      goToNextHole();
+      if(stayOnScorecard){ saveData(); renderScorecard(); }
+      else { goToNextHole(); }
     };
   });
 }
@@ -574,18 +579,36 @@ function renderScorecard(){
   const list = document.getElementById('scorecard-list');
   const round = getActiveRound();
   if(!round){ list.innerHTML = '<div class="subtle">No active round.</div>'; return; }
-  list.innerHTML = round.holes.map((h,i)=>`
-    <div class="score-row">
-      <button class="secondary hole-jump" data-hole="${i}">Hole ${h.holeNumber} • Par ${h.par}</button>
-      <button class="score-pill score-edit" data-hole="${i}">${h.score || '—'}</button>
-    </div>`).join('');
+  const renderCol = (holes, offset=0) => {
+    const rows = holes.map((h,i)=>`
+      <div class="score-row scorecard-row" id="scorecard-row-${i+offset}">
+        <button class="secondary hole-jump" data-hole="${i+offset}">Hole ${h.holeNumber}</button>
+        <label class="inline-field" style="padding:6px 8px">Par <input class="scorecard-par-input" data-hole="${i+offset}" type="number" min="3" max="7" value="${h.par}"></label>
+        <button class="score-pill score-edit" data-hole="${i+offset}">${h.score || '—'}</button>
+      </div>`).join('');
+    const total = holes.reduce((a,h)=>a+(Number(h.score)||0),0);
+    const par = holes.reduce((a,h)=>a+(Number(h.par)||0),0);
+    const diff = total ? (total-par) : 0;
+    const diffText = total ? `${diff>0?'+':''}${diff}` : '—';
+    return `<div class="card stack frost-card" style="gap:6px">${rows}<div class="score-row"><div>Total</div><div class="score-pill">${total || '—'}</div><div class="score-pill">${diffText}</div></div></div>`;
+  };
+  list.innerHTML = `<div class="row" style="align-items:flex-start">${renderCol(round.holes.slice(0,9),0)}${round.holes.length>9 ? renderCol(round.holes.slice(9),9) : ''}</div>`;
   list.querySelectorAll('.hole-jump').forEach(btn=>btn.onclick = ()=>{
     round.currentHoleIndex = Number(btn.dataset.hole);
     saveData(); showView('hole');
   });
   list.querySelectorAll('.score-edit').forEach(btn=>btn.onclick = ()=>{
     round.currentHoleIndex = Number(btn.dataset.hole);
-    openQuickFinish(Number(btn.textContent) || undefined);
+    openQuickFinish(Number(btn.textContent) || undefined, true);
+  });
+  list.querySelectorAll('.scorecard-par-input').forEach(inp=>inp.onchange = ()=>{
+    const h = round.holes[Number(inp.dataset.hole)];
+    h.par = Number(inp.value) || h.par;
+    saveData(); renderScorecard();
+  });
+  requestAnimationFrame(()=>{
+    const row = document.getElementById(`scorecard-row-${round.currentHoleIndex}`);
+    row?.scrollIntoView({block:'center', behavior:'smooth'});
   });
 }
 
@@ -869,6 +892,29 @@ function addMarker(latlng, color, radius=8, draggable=false, onDragEnd=null){
 function labelIcon(text, border='#f0c600'){
   return L.divIcon({className:'', html:`<div class="line-bubble" style="border-color:${border}">${text}</div>`});
 }
+
+function resetMapUndoButtons(except=''){
+  ['clear-plan-btn','clear-pin-btn'].forEach(id=>{
+    const btn = document.getElementById(id);
+    if(!btn) return;
+    if(except && id===except) return;
+    btn.dataset.mode = '';
+  });
+}
+function updateMapActionButtons(current, hole){
+  const clearPlan = document.getElementById('clear-plan-btn');
+  const clearPin = document.getElementById('clear-pin-btn');
+  const planBtn = document.getElementById('plan-shot-btn');
+  planBtn.style.visibility = current ? 'visible' : 'hidden';
+  planBtn.disabled = !current;
+  clearPlan.style.visibility = (transientPlan || clearPlan.dataset.mode === 'undo') ? 'visible' : 'hidden';
+  clearPlan.disabled = !(transientPlan || clearPlan.dataset.mode === 'undo');
+  clearPin.style.visibility = (hole.pinLocation || clearPin.dataset.mode === 'undo') ? 'visible' : 'hidden';
+  clearPin.disabled = !(hole.pinLocation || clearPin.dataset.mode === 'undo');
+  clearPlan.textContent = clearPlan.dataset.mode === 'undo' ? 'Undo Plan' : 'Clear Plan';
+  clearPin.textContent = clearPin.dataset.mode === 'undo' ? 'Undo Pin' : 'Clear Pin';
+}
+
 function refreshMap(){
   if(!mapReady) return;
   currentMarkers.forEach(x=>x.remove && x.remove());
@@ -878,7 +924,7 @@ function refreshMap(){
   document.getElementById('map-subtitle').textContent = `Par ${hole.par} • Yardage ${hole.holeYardage || '—'}`;
   const est = computeEstimatedToPin(round, hole);
   document.getElementById('map-estimated-display').textContent = est ? est : '—';
-  document.getElementById('map-pin-status').textContent = hole.pinLocation ? (hole.pinSource === 'last_known' ? 'Last known' : 'This round') : 'No pin';
+  document.getElementById('map-pin-status').textContent = hole.pinLocation ? `Pin: ${hole.pinSource === 'last_known' ? 'Last known' : 'This round'}` : 'No pin';
   document.getElementById('map-mode-text').textContent = mapMode === 'set-pin' ? 'Tap map to place pin' : mapMode === 'plan-shot' ? 'Tap map to place planned shot' : 'Tap Set Pin or Plan Shot';
 
   // current location from pending start or latest known
@@ -916,6 +962,7 @@ function refreshMap(){
   // transient plan
   document.getElementById('plan-leg-1').textContent = '—';
   document.getElementById('plan-leg-2').textContent = '—';
+  updateMapActionButtons(current, hole);
   if(transientPlan && current){
     const p = addMarker(transientPlan, '#e4c71a', 8, true, ll=>{ transientPlan = ll; refreshMap(); });
     currentMarkers.push(p);
@@ -936,9 +983,10 @@ function refreshMap(){
     }
   }
 }
-document.getElementById('set-pin-btn').addEventListener('click', ()=>{ mapMode='set-pin'; refreshMap(); });
-document.getElementById('plan-shot-btn').addEventListener('click', ()=>{ mapMode='plan-shot'; refreshMap(); });
+document.getElementById('set-pin-btn').addEventListener('click', ()=>{ resetMapUndoButtons(); mapMode='set-pin'; refreshMap(); });
+document.getElementById('plan-shot-btn').addEventListener('click', ()=>{ resetMapUndoButtons(); mapMode='plan-shot'; refreshMap(); });
 document.getElementById('center-me-btn').addEventListener('click', async ()=>{
+  resetMapUndoButtons();
   const geo = await captureLocation();
   if(geo){
     const hole = getCurrentHole(getActiveRound());
@@ -950,21 +998,23 @@ document.getElementById('center-me-btn').addEventListener('click', async ()=>{
 });
 document.getElementById('clear-plan-btn').addEventListener('click', ()=>{
   const btn = document.getElementById('clear-plan-btn');
+  const other = document.getElementById('clear-pin-btn');
+  other.dataset.mode = '';
   if(btn.dataset.mode === 'undo'){
     transientPlan = transientUndo?.type === 'plan' ? transientUndo.value : transientPlan;
     transientUndo = null;
     btn.dataset.mode = '';
-    btn.textContent = 'Clear Plan';
   } else {
     transientUndo = {type:'plan', value: transientPlan};
     transientPlan = null;
     btn.dataset.mode = 'undo';
-    btn.textContent = 'Undo';
   }
   refreshMap();
 });
 document.getElementById('clear-pin-btn').addEventListener('click', ()=>{
   const btn = document.getElementById('clear-pin-btn');
+  const other = document.getElementById('clear-plan-btn');
+  other.dataset.mode = '';
   const hole = getCurrentHole(getActiveRound());
   if(btn.dataset.mode === 'undo'){
     if(transientUndo?.type === 'pin'){
@@ -973,13 +1023,11 @@ document.getElementById('clear-pin-btn').addEventListener('click', ()=>{
     }
     transientUndo = null;
     btn.dataset.mode = '';
-    btn.textContent = 'Clear Pin';
   } else {
     transientUndo = {type:'pin', value:{location: hole.pinLocation, source: hole.pinSource}};
     hole.pinLocation = null;
     hole.pinSource = null;
     btn.dataset.mode = 'undo';
-    btn.textContent = 'Undo';
   }
   saveData(); refreshMap();
 });

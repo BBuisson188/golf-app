@@ -35,12 +35,8 @@
           <img src="asset_start_round.png" alt="Start Round">
         </button>
         <div class="home-action-grid">
-          <button id="home-history-btn" class="image-btn compact-image-btn">
-            <img src="asset_scorecard.png" alt="History">
-          </button>
-          <button id="home-courses-btn" class="image-btn compact-image-btn">
-            <img src="asset_home.png" alt="Courses">
-          </button>
+          <button id="home-history-btn" class="secondary text-btn home-mini-btn" data-nav="history">📝 History</button>
+          <button id="home-courses-btn" class="secondary text-btn home-mini-btn" data-nav="courses">⛳ Courses</button>
         </div>
         <button class="secondary text-btn" id="resume-draft-btn" hidden>Resume Draft Round</button>
       </main>
@@ -78,14 +74,14 @@
     <section id="view-hole" class="view main-bg">
       <header class="page-header compact view-pad">
         <div class="hole-top-grid">
-          <div class="frost-chip hole-chip">Hole <span id="hole-number">1</span></div>
+          <button id="hole-scorecard-btn" class="frost-chip hole-chip">Hole <span id="hole-number">1</span></button>
           <label class="inline-field frost-chip">Par <input id="hole-par" type="number" min="3" max="7"></label>
           <label class="inline-field frost-chip wide">Official Yardage <input id="hole-yardage" type="number" min="0" max="999"></label>
           
         </div>
         <div class="hole-meta">
           <span>Shot <strong id="shot-number">1</strong></span>
-          <span>Penalties: <strong id="penalties-count">0</strong></span>
+          <span class="penalty-wrap">Penalties: <strong id="penalties-count">0</strong> <button id="penalty-minus-btn" class="tiny-meta-btn">−</button><button id="penalty-plus-btn" class="tiny-meta-btn">+</button></span>
         </div>
       </header>
 
@@ -117,20 +113,6 @@
             <button id="ball-is-here-btn" class="hero-ball-btn" hidden>Ball Is Here</button>
           </div>
 
-          <div class="gps-row" id="start-gps-row" hidden>
-            <span id="start-gps-accuracy" class="gps-chip">GPS ±— yd</span>
-            <button id="refresh-start-gps-btn" class="icon-btn small glass-btn" title="Refresh GPS">&#x21bb;</button>
-          </div>
-
-          <div class="manual-row">
-            <button id="quick-finish-btn" class="image-btn quick-finish-btn"><img src="asset_quick_finish.png" alt="Quick Finish Hole"></button>
-          </div>
-
-          <div class="row pair-row" id="single-next-row">
-            <button id="next-shot-btn" class="secondary text-btn slim-btn">Next Shot</button>
-            <button id="undo-shot-btn" class="secondary text-btn slim-btn" hidden>Undo Shot</button>
-          </div>
-
           <div class="row compact-pickers">
             <button id="club-btn" class="picker-btn compact-picker">
               <span class="picker-label">Club</span>
@@ -141,7 +123,21 @@
               <span id="swing-display" class="value">Select</span>
             </button>
           </div>
-        </div>
+
+          <div class="gps-quick-row">
+            <div class="gps-row" id="start-gps-row" hidden>
+              <span id="start-gps-accuracy" class="gps-chip">GPS ±— yd</span>
+              <button id="refresh-start-gps-btn" class="icon-btn small glass-btn" title="Refresh GPS">&#x21bb;</button>
+            </div>
+            <button id="quick-finish-btn" class="image-btn quick-finish-btn"><img src="asset_quick_finish.png" alt="Quick Finish Hole"></button>
+          </div>
+
+          <div class="row pair-row" id="single-next-row">
+            <button id="next-shot-btn" class="secondary text-btn slim-btn">Next Shot</button>
+            <button id="undo-shot-btn" class="secondary text-btn slim-btn" hidden>Undo Shot</button>
+          </div>
+
+          
 
         <div class="row footer-art-row">
           <button class="image-btn footer-art-btn" id="open-scorecard-btn"><img src="asset_scorecard.png" alt="Scorecard"></button>
@@ -162,34 +158,19 @@
       <main class="map-shell view-pad">
         <div id="map"></div>
         <div class="map-fabs">
+          <button id="center-me-btn" class="secondary fab">Find Me</button>
           <button id="set-pin-btn" class="secondary fab">Set Pin</button>
+          <button id="clear-pin-btn" class="secondary fab">Clear Pin</button>
           <button id="plan-shot-btn" class="secondary fab">Plan Shot</button>
           <button id="clear-plan-btn" class="secondary fab">Clear Plan</button>
-          <button id="center-me-btn" class="secondary fab">Find Me</button>
-          <button id="clear-pin-btn" class="secondary fab">Clear Pin</button>
         </div>
-        <div class="map-card card">
-          <div class="row">
-            <div>
-              <div class="label">Estimated to pin</div>
-              <div id="map-estimated-display" class="value">—</div>
-            </div>
-            <div>
-              <div class="label">Pin</div>
-              <div id="map-pin-status" class="value">No pin</div>
-            </div>
-          </div>
-          <div class="row">
-            <div>
-              <div class="label">Plan 1</div>
-              <div id="plan-leg-1" class="value">—</div>
-            </div>
-            <div>
-              <div class="label">Plan 2</div>
-              <div id="plan-leg-2" class="value">—</div>
-            </div>
+        <div class="map-card card compact-map-card">
+          <div class="map-info-line">
+            <span>Estimated to pin: <strong id="map-estimated-display">—</strong></span>
+            <span id="map-pin-status">No pin</span>
           </div>
           <div class="subtle" id="map-mode-text">Tap Set Pin or Plan Shot</div>
+          <div id="plan-leg-1" hidden></div><div id="plan-leg-2" hidden></div>
         </div>
       </main>
     </section>
@@ -198,8 +179,7 @@
       <header class="page-header with-back view-pad">
         <button class="icon-btn glass-btn" data-back>&larr;</button>
         <div>
-          <h2>Scorecard</h2>
-          <p class="subtle" id="scorecard-subtitle">Current round</p>
+          <div class="scorecard-title-line"><h2 class="small-title">Scorecard</h2><p class="subtle" id="scorecard-subtitle">Current round</p></div>
         </div>
       </header>
       <main class="stack view-pad">

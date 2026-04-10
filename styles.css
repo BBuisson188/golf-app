@@ -95,7 +95,7 @@ button:active{transform:scale(.985)}
 }
 .seg.active{background:var(--green);color:#fff}
 .hole-top-grid{display:grid;grid-template-columns:auto auto 1fr auto;gap:8px;align-items:center}
-.hole-chip{color:#fff;background:var(--green);padding:12px 14px;border-radius:16px;font-weight:700}
+.hole-chip{color:#fff;background:var(--green);padding:12px 14px;border-radius:16px;font-weight:700;box-shadow:var(--shadow)}
 .inline-field{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:16px}
 .inline-field.wide{justify-content:space-between}
 .inline-field input{width:72px;padding:8px 10px}
@@ -112,7 +112,7 @@ button:active{transform:scale(.985)}
 }
 .pin-estimate-box{background:rgba(247,246,239,.86);border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;border:1px solid rgba(29,74,52,.08)}
 .pin-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center}
-.map-inline-btn{width:84px;justify-self:end}
+.map-inline-btn{width:54px;justify-self:end;align-self:center}
 .map-inline-btn img{width:100%;height:auto}
 
 .estimate-value{font-size:2rem;font-weight:700}
@@ -120,7 +120,7 @@ button:active{transform:scale(.985)}
 .manual-pin-wrap{display:flex;align-items:center;gap:10px;background:rgba(247,246,239,.86);border:1px solid rgba(29,74,52,.08);border-radius:18px;padding:12px 14px}
 .manual-pin-wrap span{font-size:.94rem;color:var(--text);font-weight:600}
 .manual-pin-wrap input{width:86px;padding:10px 10px;border:1px solid var(--line);border-radius:12px;background:#fff}
-.quick-finish-btn{max-width:220px;align-self:flex-end}
+.quick-finish-btn{max-width:176px;align-self:flex-end}
 .compact-pickers .compact-picker{padding:14px;background:rgba(247,246,239,.86);border:1px solid rgba(29,74,52,.08)}
 .picker-btn{display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-radius:18px;box-shadow:var(--shadow)}
 .value{font-weight:700;font-size:1.08rem}
@@ -169,7 +169,18 @@ button:active{transform:scale(.985)}
   .row{flex-direction:column}
   .manual-row{grid-template-columns:1fr}
   .compact-pickers,.pair-row,.footer-art-row,.home-action-grid,.pin-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .gps-quick-row{grid-template-columns:1fr auto;gap:10px}
   .current-lie-text{font-size:1.45rem;left:50%;right:10%}
   .estimate-value{font-size:1.7rem}
   .hero-ball-btn{font-size:1.7rem}
 }
+
+.gps-quick-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.compact-map-card{padding:10px 14px}
+.map-info-line{display:flex;justify-content:space-between;gap:16px;align-items:center;font-size:.96rem}
+
+.home-mini-btn{font-size:1.05rem;text-align:center;padding:16px 14px}
+.scorecard-title-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.small-title{font-size:1.2rem}
+.penalty-wrap{display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap}
+.tiny-meta-btn{min-width:22px;min-height:22px;border-radius:999px;padding:0;background:rgba(247,246,239,.92);box-shadow:var(--shadow);font-weight:700}
