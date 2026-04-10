@@ -237,3 +237,7 @@ button:active{transform:scale(.985)}
 .score-total-line{display:flex;justify-content:flex-end;gap:18px;padding-top:8px;font-weight:700}
 .score-total-line span:first-child{margin-right:auto}
 .player-hole-btn{background:transparent;border:none;padding:0;text-align:left;color:var(--text);font-weight:600}
+
+.scorecard-top-bar{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.round-title-input{font:inherit;font-size:1.35rem;font-weight:700;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.82);width:100%}
+.compact-picker.disabled{opacity:.5;pointer-events:none}

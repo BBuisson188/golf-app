@@ -55,6 +55,40 @@ function getCurrentHole(round){
   return round.holes[round.currentHoleIndex || 0];
 }
 
+
+function getRoundStats(round){
+  const front = round.holes.slice(0,9); const back = round.holes.slice(9);
+  const frontPlayed = front.filter(h=>h.score != null && h.score !== '');
+  const backPlayed = back.filter(h=>h.score != null && h.score !== '');
+  const frontScore = frontPlayed.reduce((a,h)=>a+(Number(h.score)||0),0);
+  const backScore = backPlayed.reduce((a,h)=>a+(Number(h.score)||0),0);
+  const totalScore = [...frontPlayed,...backPlayed].reduce((a,h)=>a+(Number(h.score)||0),0);
+  const teeDriverShots = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee' && (s.club||'').toLowerCase()==='driver' && s.gpsDistance!=null)).filter(Boolean);
+  const avgDrive = teeDriverShots.length ? Math.round(teeDriverShots.reduce((a,s)=>a+s.gpsDistance,0)/teeDriverShots.length) : null;
+  const teeShots = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee')).filter(Boolean);
+  const fairwayHitCount = teeShots.length ? teeShots.filter(s=>['fairway','first_cut','fringe','cup','green'].includes((s.endLie||'').toLowerCase())).length : 0;
+  const fairwayMissCount = teeShots.length ? teeShots.filter(s=>['rough','bunker','penalty','recovery'].includes((s.endLie||'').toLowerCase())).length : 0;
+  const puttHoles = round.holes.filter(h=>h.puttCount != null);
+  const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+Number(h.puttCount||0),0)/puttHoles.length).toFixed(1) : null;
+  const totalPen = round.holes.reduce((a,h)=>a+Number(h.penaltyStrokes||0),0);
+  const girMade = round.holes.filter(h=>{ const greenShot = h.shots.find(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!greenShot) return false; return greenShot.shotNumber <= (Number(h.par||4)-2); }).length;
+  return [
+    ['Avg Drive', avgDrive],
+    ['Fairways Hit', fairwayHitCount > 0 ? fairwayHitCount : null],
+    ['Fairways Missed', fairwayMissCount > 0 ? fairwayMissCount : null],
+    ['Avg Putts', avgPutts],
+    ['Front 9', frontPlayed.length ? frontScore : null],
+    ['Back 9', back.length ? (backPlayed.length ? backScore : null) : null],
+    ['Total', (frontPlayed.length||backPlayed.length) ? totalScore : null],
+    ['Penalties', totalPen || null],
+    ['GIR', girMade > 0 ? `${girMade}` : null]
+  ].filter(([,v])=>v != null);
+}
+function roundStatsHtml(round){
+  const stats = getRoundStats(round);
+  return `<div class="summary-grid">${stats.map(([k,v])=>`<div class="summary-chip"><span>${k}</span><strong>${v}</strong></div>`).join('')}</div>`;
+}
+
 function findNextHoleToPlay(round){
   let lastScored = -1;
   round.holes.forEach((h,i)=>{ if(h.score != null && h.score !== '') lastScored = i; });
@@ -127,23 +161,32 @@ function computeEstimatedToPin(round, hole){
   }
   return null;
 }
+function buildDraft(round, hole, overrides={}){
+  const shotNumber = (hole.shots.length || 0) + (hole.puttCount || 0) + 1;
+  const baseLie = overrides.startLie || hole.currentLie || (hole.shots.length === 0 ? 'Tee' : 'Fairway');
+  let defaultClub = '';
+  if((baseLie || '').toLowerCase() === 'green' || (baseLie || '').toLowerCase() === 'cup') defaultClub = 'Putter';
+  else if(hole.shots.length === 0 && (Number(hole.par) === 4 || Number(hole.par) === 5) && (baseLie || '').toLowerCase() === 'tee') defaultClub = 'Driver';
+  else defaultClub = '';
+  return {
+    shotNumber,
+    club: overrides.club !== undefined ? overrides.club : defaultClub,
+    swingType: overrides.swingType !== undefined ? overrides.swingType : '',
+    manualPinYardage: overrides.manualPinYardage !== undefined ? overrides.manualPinYardage : '',
+    estimatedPinYardage: computeEstimatedToPin(round, hole),
+    startLie: baseLie,
+    startGps: overrides.startGps || null,
+    startAccuracyYd: overrides.startAccuracyYd || null,
+    endGps: null,
+    endAccuracyYd: null,
+    endLie: '',
+    resultType: '',
+    started: !!overrides.started
+  };
+}
 function ensureShotDraft(hole){
   if(!hole.currentShotDraft){
-    hole.currentShotDraft = {
-      shotNumber: (hole.shots.length || 0) + 1,
-      club: '',
-      swingType: '',
-      manualPinYardage: '',
-      estimatedPinYardage: computeEstimatedToPin(getActiveRound(), hole),
-      startLie: hole.currentLie || 'Tee',
-      startGps: null,
-      startAccuracyYd: null,
-      endGps: null,
-      endAccuracyYd: null,
-      endLie: '',
-      resultType: '',
-      started: false
-    };
+    hole.currentShotDraft = buildDraft(getActiveRound(), hole);
   }
   return hole.currentShotDraft;
 }
@@ -182,6 +225,14 @@ document.querySelectorAll('[data-nav]').forEach(btn => btn.addEventListener('cli
 }));
 document.getElementById('go-home-btn').addEventListener('click', ()=>showView('home'));
 document.getElementById('hole-scorecard-btn').addEventListener('click', ()=>showView('scorecard'));
+document.getElementById('home-info-btn').addEventListener('click', ()=>{
+  openModal('Information', `
+    <div class="stack">
+      <div class="subtle">All storage takes place locally on this device. Rounds, scorecards, saved courses, and map settings stay in this browser unless you export a JSON file.</div>
+      <div class="subtle">Export JSON from History whenever you want a backup or want to analyze rounds later on a computer.</div>
+      <div class="subtle">MapTiler is optional. If no API key is saved, the map falls back to OpenStreetMap.</div>
+    </div>`);
+});
 
 function renderResumeButton(){
   const btn = document.getElementById('resume-draft-btn');
@@ -219,6 +270,20 @@ document.getElementById('start-round-btn').addEventListener('click', ()=>{
   showView('hole', false);
 });
 
+
+document.getElementById('create-course-btn').addEventListener('click', ()=>{
+  const holesCount = Number(document.querySelector('.seg.active').dataset.holes);
+  const courseName = document.getElementById('start-course-name').value.trim() || 'Untitled Course';
+  const rows = Array.from({length: holesCount}, (_,i)=>`<div class="score-row"><div style="min-width:72px">Hole ${i+1}</div><input class="builder-par-input" data-hole="${i}" type="text" inputmode="numeric" maxlength="1" value="4" style="width:42px;padding:8px;border:1px solid #d8ddcf;border-radius:8px"><input class="builder-yard-input" data-hole="${i}" type="number" min="0" max="999" placeholder="Yardage" style="width:92px;padding:8px;border:1px solid #d8ddcf;border-radius:8px"></div>`).join('');
+  openModal('Create Course', `<div class="stack"><label class="field"><span>Course Name</span><input id="builder-course-name" type="text" value="${escapeHtml(courseName)}"></label>${rows}<button id="save-created-course" class="secondary">Save Course</button></div>`, ()=>{
+    document.getElementById('save-created-course').onclick = ()=>{
+      const course = { id: uid('course'), name: document.getElementById('builder-course-name').value.trim() || courseName, holesCount, holes: [] };
+      document.querySelectorAll('.builder-par-input').forEach(inp=>{ const i=Number(inp.dataset.hole); course.holes[i] = { holeNumber:i+1, par:Number(inp.value)||4, yardage:'', pinLocation:null }; });
+      document.querySelectorAll('.builder-yard-input').forEach(inp=>{ const i=Number(inp.dataset.hole); course.holes[i].yardage = inp.value ? Number(inp.value) : ''; });
+      state.courses.push(course); saveData(); closeModal(); showView('courses');
+    };
+  });
+});
 function holeElems(){
   return {
     holeNumber: document.getElementById('hole-number'),
@@ -256,6 +321,8 @@ function renderHole(){
   draft.estimatedPinYardage = est ?? '';
   el.estimated.textContent = est ? `${est}` : '—';
   el.club.textContent = draft.club || 'Select';
+  document.getElementById('club-btn').classList.toggle('disabled', (hole.currentLie||'').toLowerCase()==='cup');
+  document.getElementById('next-shot-btn').textContent = (hole.currentLie||'').toLowerCase()==='cup' ? 'End Hole' : 'Next Shot';
   el.swing.textContent = draft.swingType || 'Select';
   el.manualPin.value = draft.manualPinYardage || '';
   el.startRow.hidden = !draft.started;
@@ -283,7 +350,7 @@ document.getElementById('penalty-minus-btn').addEventListener('click', ()=>{ con
 document.getElementById('current-lie-btn').addEventListener('click', ()=>{
   const round = getActiveRound(); const hole = getCurrentHole(round);
   const options = ['Tee','Fairway','First Cut','Rough','Fringe','Bunker','Recovery','Green','Cup','Penalty'];
-  openSheet('Select Current Lie', options.map(v=>({label:v, action:()=>{hole.currentLie=v; ensureShotDraft(hole).startLie=v; saveData(); render(); closeSheet();}})), 'option-grid-2');
+  openSheet('Select Current Lie', options.map(v=>({label:v, action:()=>{hole.currentLie=v; const d=ensureShotDraft(hole); d.startLie=v; if(v==='Green' || v==='Cup') d.club='Putter'; saveData(); render(); closeSheet();}})), 'option-grid-2');
 });
 
 document.getElementById('manual-pin-input').addEventListener('input', e=>{
@@ -331,70 +398,83 @@ document.getElementById('refresh-start-gps-btn').addEventListener('click', async
   }
 });
 function advanceNextShot(context){
-  const round = getActiveRound(); const hole = getCurrentHole(round); const draft=ensureShotDraft(hole);
+  const round = getActiveRound();
+  const hole = getCurrentHole(round);
+  const draft = ensureShotDraft(hole);
   lastNextShotUndo = {context, snapshot: JSON.parse(JSON.stringify({hole}))};
-  const missed = {
-    shotNumber: draft.shotNumber,
-    club: draft.club || '',
-    swingType: draft.swingType || '',
-    manualPinYardage: draft.manualPinYardage || '',
-    estimatedPinYardage: draft.estimatedPinYardage || '',
-    startLie: draft.startLie || hole.currentLie || 'Tee',
-    endLie: '',
-    resultType: 'untracked',
-    started: !!draft.started,
-    startGps: draft.startGps || null,
-    startAccuracyYd: draft.startAccuracyYd || null,
-    endGps: null,
-    endAccuracyYd: null,
-    gpsDistance: null,
-    notes: 'Advanced via Next Shot'
-  };
-  hole.shots.push(missed);
-  hole.currentLie = hole.currentLie || missed.startLie;
-  hole.currentShotDraft = {
-    shotNumber: hole.shots.length + 1,
-    club: '',
-    swingType: '',
-    manualPinYardage: '',
-    estimatedPinYardage: computeEstimatedToPin(round, hole),
-    startLie: hole.currentLie || 'Fairway',
-    startGps: null,
-    startAccuracyYd: null,
-    started: false
-  };
+
+  let selectedLie = (hole.currentLie || draft.startLie || (draft.shotNumber === 1 ? 'Tee' : 'Fairway'));
+  if(draft.shotNumber === 1 && (!hole.currentLie || hole.currentLie === 'Tee')) selectedLie = 'Fairway';
+  const normalizedLie = selectedLie.toLowerCase().replace(' ','_');
+  const selectedClub = draft.club || '';
+
+  if(normalizedLie === 'cup'){
+    if((selectedClub || '').toLowerCase() === 'putter' || (draft.startLie || '').toLowerCase() === 'green' || (hole.currentLie || '').toLowerCase() === 'green'){
+      hole.puttCount = (hole.puttCount || 0) + 1;
+    } else {
+      hole.shots.push({
+        shotNumber: draft.shotNumber,
+        club: selectedClub || '',
+        swingType: draft.swingType || '',
+        manualPinYardage: draft.manualPinYardage || '',
+        estimatedPinYardage: draft.estimatedPinYardage || '',
+        startLie: draft.startLie || hole.currentLie || 'Tee',
+        endLie: 'cup',
+        resultType: 'cup',
+        started: !!draft.started,
+        startGps: draft.startGps || null,
+        startAccuracyYd: draft.startAccuracyYd || null,
+        endGps: null,
+        endAccuracyYd: null,
+        gpsDistance: null,
+        notes: 'Advanced via Next Shot'
+      });
+    }
+    hole.currentLie = 'Cup';
+    hole.puttCount = hole.puttCount ?? 0;
+    saveData();
+    finalizeHoleAuto();
+    return;
+  }
+
+  if(normalizedLie === 'green' || (selectedClub || '').toLowerCase() === 'putter'){
+    hole.puttCount = (hole.puttCount || 0) + 1;
+    hole.currentLie = 'Green';
+    hole.currentShotDraft = buildDraft(round, hole, {club: 'Putter', startLie: 'Green'});
+  } else {
+    hole.shots.push({
+      shotNumber: draft.shotNumber,
+      club: selectedClub || '',
+      swingType: draft.swingType || '',
+      manualPinYardage: draft.manualPinYardage || '',
+      estimatedPinYardage: draft.estimatedPinYardage || '',
+      startLie: draft.startLie || (draft.shotNumber === 1 ? 'Tee' : 'Fairway'),
+      endLie: normalizedLie,
+      resultType: normalizedLie,
+      started: !!draft.started,
+      startGps: draft.startGps || null,
+      startAccuracyYd: draft.startAccuracyYd || null,
+      endGps: null,
+      endAccuracyYd: null,
+      gpsDistance: null,
+      notes: 'Advanced via Next Shot'
+    });
+    hole.currentLie = selectedLie;
+    hole.currentShotDraft = buildDraft(round, hole, {startLie: selectedLie});
+  }
+
   if(context === 'setup'){ hole.startUndoVisible = true; hole.waitUndoVisible = false; }
   else { hole.waitUndoVisible = true; hole.startUndoVisible = false; hole.currentShotDraft.started = false; }
   saveData(); render();
 }
-document.getElementById('next-shot-btn').addEventListener('click', ()=>{ const hole=getCurrentHole(getActiveRound()); const draft=ensureShotDraft(hole); advanceNextShot(draft.started ? 'wait' : 'setup'); });
+document.getElementById('next-shot-btn').addEventListener('click', ()=>{ const hole=getCurrentHole(getActiveRound()); const draft=ensureShotDraft(hole); if((hole.currentLie||'').toLowerCase()==='cup'){ hole.currentLie='Cup'; saveData(); finalizeHoleAuto(); return; } advanceNextShot(draft.started ? 'wait' : 'setup'); });
 function undoNextShot(context){
   const round = getActiveRound(); const hole = getCurrentHole(round);
   if(hole.shots.length) hole.shots.pop();
-  hole.currentShotDraft = {
-    shotNumber: hole.shots.length + 1,
-    club: '',
-    swingType: '',
-    manualPinYardage: '',
-    estimatedPinYardage: computeEstimatedToPin(round, hole),
-    startLie: hole.currentLie || 'Tee',
-    startGps: null,
-    startAccuracyYd: null,
-    started: context === 'wait' ? true : false
-  };
+  hole.currentShotDraft = buildDraft(round, hole, {started: context === 'wait'});
   if(context === 'wait'){
     const prior = hole.shots[hole.shots.length-1];
-    hole.currentShotDraft = {
-      shotNumber: hole.shots.length + 1,
-      club: '',
-      swingType: '',
-      manualPinYardage: '',
-      estimatedPinYardage: computeEstimatedToPin(round, hole),
-      startLie: hole.currentLie || 'Tee',
-      startGps: prior?.startGps || null,
-      startAccuracyYd: prior?.startAccuracyYd || null,
-      started: true
-    };
+    hole.currentShotDraft = buildDraft(round, hole, {startGps: prior?.startGps || null, startAccuracyYd: prior?.startAccuracyYd || null, started: true});
   }
   hole.startUndoVisible = false;
   hole.waitUndoVisible = false;
@@ -472,24 +552,12 @@ function applyResult(result){
   } else if(normalized === 'penalty'){
     hole.penaltyStrokes = (hole.penaltyStrokes || 0) + 1;
     hole.currentLie = 'Penalty';
-    hole.currentShotDraft = {
-      shotNumber: hole.shots.length + 1,
-      club: '', swingType: '', manualPinYardage: '',
-      estimatedPinYardage: computeEstimatedToPin(round, hole),
-      startLie: hole.currentLie,
-      startGps: null, startAccuracyYd: null, started:false
-    };
+    hole.currentShotDraft = buildDraft(round, hole, {startLie: hole.currentLie});
     hole.startUndoVisible = false; hole.waitUndoVisible = false;
     saveData(); render();
   } else {
     hole.currentLie = result;
-    hole.currentShotDraft = {
-      shotNumber: hole.shots.length + 1,
-      club: '', swingType: '', manualPinYardage: '',
-      estimatedPinYardage: computeEstimatedToPin(round, hole),
-      startLie: result,
-      startGps: null, startAccuracyYd: null, started:false
-    };
+    hole.currentShotDraft = buildDraft(round, hole, {startLie: result});
     hole.startUndoVisible = false; hole.waitUndoVisible = false;
     saveData(); render();
   }
@@ -548,7 +616,8 @@ function goToNextHole(){
 document.getElementById('quick-finish-btn').addEventListener('click', ()=>openQuickFinish());
 function openQuickFinish(prefillScore=null, stayOnScorecard=false){
   const hole = getCurrentHole(getActiveRound());
-  let score = prefillScore || hole.score || Number(hole.par || 4) || 4;
+  const trackedScore = (hole.shots?.length || 0) + (hole.puttCount || 0) + (hole.penaltyStrokes || 0);
+  let score = prefillScore || hole.score || trackedScore || Number(hole.par || 4) || 4;
   let putts = hole.puttCount;
   const puttDisplay = ()=> (putts == null ? '—' : String(putts));
   const html = `
@@ -599,7 +668,7 @@ function renderScorecard(){
   document.getElementById('scorecard-others-btn').classList.toggle('active', mode==='others');
 
   if(mode === 'me'){
-    const renderCol = (holes, offset=0) => {
+    const renderCol = (holes, offset=0, label='Front 9') => {
       const rows = holes.map((h,i)=>`
         <div class="score-line" id="scorecard-row-${i+offset}">
           <button class="score-hole-btn hole-jump" data-hole="${i+offset}">H${h.holeNumber}</button>
@@ -611,7 +680,7 @@ function renderScorecard(){
       const par = played.reduce((a,h)=>a+(Number(h.par)||0),0);
       const diff = played.length ? (total-par) : null;
       const diffText = diff == null ? '—' : `${diff>0?'+':''}${diff}`;
-      return `<div class="scorecard-col">${rows}<div class="score-line"><strong>Total</strong><span>${played.length ? total : '—'}</span><span>${diffText}</span></div></div>`;
+      return `<div class="scorecard-col"><div class="score-head"><span>Hole</span><span>Par</span><span>Score</span></div>${rows}<div class="score-total-line"><span>${label}</span><span>${played.length ? total : '—'}</span><span>${diffText}</span></div></div>`;
     };
     list.className = 'stack';
     list.innerHTML = `<div class="scorecard-list-plain">${renderCol(round.holes.slice(0,9),0,'Front 9')}${round.holes.length>9 ? renderCol(round.holes.slice(9),9,'Total Score') : ''}</div>`;
@@ -692,6 +761,7 @@ function renderScorecard(){
 }
 document.getElementById('scorecard-me-btn').addEventListener('click', ()=>{ state.settings.scorecardMode='me'; saveData(); renderScorecard(); });
 document.getElementById('scorecard-others-btn').addEventListener('click', ()=>{ state.settings.scorecardMode='others'; saveData(); renderScorecard(); });
+document.getElementById('scorecard-stats-btn').addEventListener('click', ()=>{ const round=getActiveRound(); if(!round) return; openModal('Round Stats', `<div class="card frost-card">${roundStatsHtml(round)}</div>`); });
 
 function renderHistory(){
   const root = document.getElementById('history-list');
@@ -721,7 +791,7 @@ function renderHistory(){
 function renderRoundDetail(){
   const round = state.rounds.find(r=>r.id===selectedRoundForDetail);
   if(!round) return;
-  document.getElementById('round-detail-title').textContent = round.courseName;
+  document.getElementById('round-detail-title-input').value = round.courseName;
   document.getElementById('round-detail-subtitle').textContent = `${new Date(round.createdAt).toLocaleDateString()} • ${round.holesCount} holes`;
   const wrap = document.getElementById('round-detail-holes');
   const front = round.holes.slice(0,9);
@@ -734,30 +804,22 @@ function renderRoundDetail(){
   const teeDriverShots = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee' && (s.club||'').toLowerCase()==='driver' && s.gpsDistance!=null)).filter(Boolean);
   const avgDrive = teeDriverShots.length ? Math.round(teeDriverShots.reduce((a,s)=>a+s.gpsDistance,0)/teeDriverShots.length) : null;
   const teeShots = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee')).filter(Boolean);
-  const fairwayHits = teeShots.filter(s=>['fairway','first_cut','fringe','cup','green'].includes((s.endLie||'').toLowerCase())).length || null;
-  const fairwayMisses = teeShots.filter(s=>['rough','bunker','penalty','recovery'].includes((s.endLie||'').toLowerCase())).length || null;
+  const fairwayHitCount = teeShots.length ? teeShots.filter(s=>['fairway','first_cut','fringe','cup','green'].includes((s.endLie||'').toLowerCase())).length : 0;
+  const fairwayHits = fairwayHitCount > 0 ? fairwayHitCount : null;
+  const fairwayMissCount = teeShots.length ? teeShots.filter(s=>['rough','bunker','penalty','recovery'].includes((s.endLie||'').toLowerCase())).length : 0;
+  const fairwayMisses = fairwayMissCount > 0 ? fairwayMissCount : null;
   const puttHoles = round.holes.filter(h=>h.puttCount != null);
   const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+Number(h.puttCount||0),0)/puttHoles.length).toFixed(1) : null;
   const totalPen = round.holes.reduce((a,h)=>a+Number(h.penaltyStrokes||0),0);
   const girMade = round.holes.filter(h=>{ const greenShot = h.shots.find(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!greenShot) return false; return greenShot.shotNumber <= (Number(h.par||4)-2); }).length;
-  const summary = [
-    ['Avg Drive', avgDrive],
-    ['Fairways Hit', fairwayHits],
-    ['Fairways Missed', fairwayMisses],
-    ['Avg Putts', avgPutts],
-    ['Front 9', frontPlayed.length ? frontScore : null],
-    ['Back 9', back.length ? (backPlayed.length ? backScore : null) : null],
-    ['Total', (frontPlayed.length||backPlayed.length) ? totalScore : null],
-    ['Penalties', totalPen || null],
-    ['GIR', girMade ? `${girMade}` : null]
-  ].filter(([,v])=>v != null);
+  const summary = getRoundStats(round);
   const box = (holes, offset=0) => `
     <div class="card stack frost-card" style="gap:6px">
       ${holes.map((h,i)=>`<div class="score-row" id="detail-hole-${i+offset}" style="padding:8px 10px"><div>Hole ${h.holeNumber}</div><div>Par ${h.par}</div><div class="score-pill">${h.score || '—'}</div></div>`).join('')}
     </div>`;
   wrap.innerHTML = `
     <div class="card frost-card">
-      <div class="summary-grid">${summary.map(([k,v])=>`<div class="summary-chip"><span>${k}</span><strong>${v}</strong></div>`).join('')}</div>
+      ${roundStatsHtml(round)}
     </div>
     <div class="scorecard-columns">${box(front,0)}${back.length ? box(back,9) : ''}</div>`;
   document.getElementById('round-export-btn').onclick = ()=>exportRound(round.id);
@@ -870,8 +932,11 @@ function captureLocation(){
       resolve(null); return;
     }
     navigator.geolocation.getCurrentPosition(pos=>{
+      const latlng = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+      state.settings.lastKnownLocation = latlng;
+      saveData();
       resolve({
-        latlng: {lat: pos.coords.latitude, lng: pos.coords.longitude},
+        latlng,
         accuracy: pos.coords.accuracy
       });
     }, err=>{
@@ -904,7 +969,15 @@ function updateTileLayer(){
 }
 
 // map
-document.getElementById('open-map-btn').addEventListener('click', ()=>showView('map'));
+document.getElementById('open-map-btn').addEventListener('click', ()=>{
+  showView('map');
+  setTimeout(()=>{
+    const round = getActiveRound(); if(!round || !mapReady) return;
+    const hole = getCurrentHole(round);
+    const best = hole.currentLocation || hole.currentShotDraft?.startGps || hole.pendingEndGps || hole.shots.slice().reverse().find(s=>s.endGps)?.endGps || hole.shots.find(s=>s.startGps)?.startGps || hole.pinLocation || state.settings.lastKnownLocation;
+    if(best){ map.setView([best.lat, best.lng], Math.max(map.getZoom(), 17)); }
+  }, 80);
+});
 document.getElementById('map-back-btn').addEventListener('click', ()=>showView('hole'));
 document.getElementById('map-settings-btn').addEventListener('click', ()=>{
   let key = state.settings.maptilerApiKey || '';
@@ -1118,3 +1191,16 @@ document.getElementById('clear-pin-btn').addEventListener('click', ()=>{
 });
 
 render();
+
+document.getElementById('history-stats-info-btn').addEventListener('click', ()=>{
+  openModal('History Stats', `
+    <div class="stack">
+      <div class="subtle"><strong>Avg Drive</strong>: average distance of driver shots hit from the tee when distance data exists.</div>
+      <div class="subtle"><strong>Fairways Hit</strong>: tee shots finishing in fairway, first cut, fringe, green, or cup.</div>
+      <div class="subtle"><strong>Fairways Missed</strong>: tee shots finishing in rough, bunker, penalty, or recovery.</div>
+      <div class="subtle"><strong>Avg Putts</strong>: average putts per hole using only holes where putts were entered.</div>
+      <div class="subtle"><strong>GIR</strong>: holes where the first shot finishing on the green or in the cup happened in par minus two strokes or better.</div>
+    </div>`);
+});
+
+document.getElementById('round-detail-title-input').addEventListener('change', e=>{ const round = state.rounds.find(r=>r.id===selectedRoundForDetail); if(!round) return; round.courseName = e.target.value.trim() || round.courseName; saveData(); renderHistory(); });

@@ -69,6 +69,7 @@
         <button id="start-round-btn" class="image-btn start-round-btn">
           <img src="asset_start_round.png" alt="Start Round">
         </button>
+        <button id="create-course-btn" class="secondary text-btn">Create Course</button>
       </main>
     </section>
 
@@ -185,7 +186,7 @@
         </div>
       </header>
       <main class="stack view-pad">
-        <div class="segmented frosted" id="scorecard-mode-toggle"><button id="scorecard-me-btn" class="seg active">Me</button><button id="scorecard-others-btn" class="seg">Other Players</button></div>
+        <div class="scorecard-top-bar"><div class="segmented frosted" id="scorecard-mode-toggle"><button id="scorecard-me-btn" class="seg active">Me</button><button id="scorecard-others-btn" class="seg">Other Players</button></div><button id="scorecard-stats-btn" class="icon-btn glass-btn">Stats</button></div>
         <div id="scorecard-list" class="card stack frost-card"></div>
         <button class="secondary text-btn" id="back-to-hole-btn">Play Next Hole</button>
       </main>
@@ -206,9 +207,10 @@
       <header class="page-header with-back view-pad">
         <button class="icon-btn glass-btn" data-back>&larr;</button>
         <div>
-          <h2 id="round-detail-title">Round Detail</h2>
+          <input id="round-detail-title-input" class="round-title-input" type="text" value="Round Detail">
           <p class="subtle" id="round-detail-subtitle"></p>
         </div>
+        <button id="history-stats-info-btn" class="icon-btn glass-btn">i</button>
       </header>
       <main class="stack view-pad">
         <div id="round-detail-holes" class="card stack frost-card"></div>
