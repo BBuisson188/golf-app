@@ -583,16 +583,17 @@ function renderScorecard(){
     const rows = holes.map((h,i)=>`
       <div class="score-row scorecard-row" id="scorecard-row-${i+offset}">
         <button class="secondary hole-jump" data-hole="${i+offset}">Hole ${h.holeNumber}</button>
-        <label class="inline-field" style="padding:6px 8px">Par <input class="scorecard-par-input" data-hole="${i+offset}" type="number" min="3" max="7" value="${h.par}"></label>
+        <label class="inline-field" style="padding:6px 6px">Par <input class="scorecard-par-input" data-hole="${i+offset}" type="number" min="3" max="7" value="${h.par}"></label>
         <button class="score-pill score-edit" data-hole="${i+offset}">${h.score || '—'}</button>
       </div>`).join('');
-    const total = holes.reduce((a,h)=>a+(Number(h.score)||0),0);
-    const par = holes.reduce((a,h)=>a+(Number(h.par)||0),0);
-    const diff = total ? (total-par) : 0;
-    const diffText = total ? `${diff>0?'+':''}${diff}` : '—';
-    return `<div class="card stack frost-card" style="gap:6px">${rows}<div class="score-row"><div>Total</div><div class="score-pill">${total || '—'}</div><div class="score-pill">${diffText}</div></div></div>`;
+    const played = holes.filter(h=>h.score != null && h.score !== '');
+    const total = played.reduce((a,h)=>a+(Number(h.score)||0),0);
+    const par = played.reduce((a,h)=>a+(Number(h.par)||0),0);
+    const diff = played.length ? (total-par) : null;
+    const diffText = diff == null ? '—' : `${diff>0?'+':''}${diff}`;
+    return `<div class="card stack frost-card" style="gap:6px">${rows}<div class="score-row"><div>Total</div><div class="score-pill">${played.length ? total : '—'}</div><div class="score-pill">${diffText}</div></div></div>`;
   };
-  list.innerHTML = `<div class="row" style="align-items:flex-start">${renderCol(round.holes.slice(0,9),0)}${round.holes.length>9 ? renderCol(round.holes.slice(9),9) : ''}</div>`;
+  list.innerHTML = `<div class="scorecard-columns">${renderCol(round.holes.slice(0,9),0)}${round.holes.length>9 ? renderCol(round.holes.slice(9),9) : ''}</div>`;
   list.querySelectorAll('.hole-jump').forEach(btn=>btn.onclick = ()=>{
     round.currentHoleIndex = Number(btn.dataset.hole);
     saveData(); showView('hole');
@@ -645,36 +646,40 @@ function renderRoundDetail(){
   const wrap = document.getElementById('round-detail-holes');
   const front = round.holes.slice(0,9);
   const back = round.holes.slice(9);
-  const frontScore = front.reduce((a,h)=>a+(Number(h.score)||0),0);
-  const backScore = back.reduce((a,h)=>a+(Number(h.score)||0),0);
-  const totalScore = round.holes.reduce((a,h)=>a+(Number(h.score)||0),0);
+  const frontPlayed = front.filter(h=>h.score != null && h.score !== '');
+  const backPlayed = back.filter(h=>h.score != null && h.score !== '');
+  const frontScore = frontPlayed.reduce((a,h)=>a+(Number(h.score)||0),0);
+  const backScore = backPlayed.reduce((a,h)=>a+(Number(h.score)||0),0);
+  const totalScore = [...frontPlayed,...backPlayed].reduce((a,h)=>a+(Number(h.score)||0),0);
   const teeDriverShots = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee' && (s.club||'').toLowerCase()==='driver' && s.gpsDistance!=null)).filter(Boolean);
-  const avgDrive = teeDriverShots.length ? Math.round(teeDriverShots.reduce((a,s)=>a+s.gpsDistance,0)/teeDriverShots.length) : '—';
-  const fairwayHits = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee')).filter(Boolean).filter(s=>['fairway','first_cut','fringe','cup','green'].includes((s.endLie||'').toLowerCase())).length;
-  const fairwayMisses = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee')).filter(Boolean).filter(s=>['rough','bunker','penalty','recovery'].includes((s.endLie||'').toLowerCase())).length;
+  const avgDrive = teeDriverShots.length ? Math.round(teeDriverShots.reduce((a,s)=>a+s.gpsDistance,0)/teeDriverShots.length) : null;
+  const teeShots = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee')).filter(Boolean);
+  const fairwayHits = teeShots.filter(s=>['fairway','first_cut','fringe','cup','green'].includes((s.endLie||'').toLowerCase())).length || null;
+  const fairwayMisses = teeShots.filter(s=>['rough','bunker','penalty','recovery'].includes((s.endLie||'').toLowerCase())).length || null;
   const puttHoles = round.holes.filter(h=>h.puttCount != null);
-  const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+Number(h.puttCount||0),0)/puttHoles.length).toFixed(1) : '—';
+  const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+Number(h.puttCount||0),0)/puttHoles.length).toFixed(1) : null;
   const totalPen = round.holes.reduce((a,h)=>a+Number(h.penaltyStrokes||0),0);
-  const girMade = round.holes.filter(h=>{ const greenShot = h.shots.find(s=>(s.endLie||'').toLowerCase()==='green' || (s.endLie||'').toLowerCase()==='cup'); if(!greenShot) return false; return greenShot.shotNumber <= (Number(h.par||4)-2); }).length;
-  const girPct = round.holes.length ? `${Math.round((girMade/round.holes.length)*100)}%` : '—';
-  const box = holes => `
+  const girMade = round.holes.filter(h=>{ const greenShot = h.shots.find(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!greenShot) return false; return greenShot.shotNumber <= (Number(h.par||4)-2); }).length;
+  const summary = [
+    ['Avg Drive', avgDrive],
+    ['Fairways Hit', fairwayHits],
+    ['Fairways Missed', fairwayMisses],
+    ['Avg Putts', avgPutts],
+    ['Front 9', frontPlayed.length ? frontScore : null],
+    ['Back 9', back.length ? (backPlayed.length ? backScore : null) : null],
+    ['Total', (frontPlayed.length||backPlayed.length) ? totalScore : null],
+    ['Penalties', totalPen || null],
+    ['GIR', girMade ? `${girMade}` : null]
+  ].filter(([,v])=>v != null);
+  const box = (holes, offset=0) => `
     <div class="card stack frost-card" style="gap:6px">
-      ${holes.map(h=>`<div class="score-row" style="padding:8px 10px"><div>Hole ${h.holeNumber}</div><div>Par ${h.par}</div><div class="score-pill">${h.score || '—'}</div></div>`).join('')}
+      ${holes.map((h,i)=>`<div class="score-row" id="detail-hole-${i+offset}" style="padding:8px 10px"><div>Hole ${h.holeNumber}</div><div>Par ${h.par}</div><div class="score-pill">${h.score || '—'}</div></div>`).join('')}
     </div>`;
   wrap.innerHTML = `
-    <div class="card stack frost-card">
-      <div class="score-row"><div>Avg Drive</div><div class="score-pill">${avgDrive}</div></div>
-      <div class="score-row"><div>Fairways Hit</div><div class="score-pill">${fairwayHits}</div></div>
-      <div class="score-row"><div>Fairways Missed</div><div class="score-pill">${fairwayMisses}</div></div>
-      <div class="score-row"><div>Avg Putts</div><div class="score-pill">${avgPutts}</div></div>
-      <div class="score-row"><div>Front 9</div><div class="score-pill">${frontScore || '—'}</div></div>
-      <div class="score-row"><div>Back 9</div><div class="score-pill">${back.length ? backScore : '—'}</div></div>
-      <div class="score-row"><div>Total</div><div class="score-pill">${totalScore || '—'}</div></div>
-      <div class="score-row"><div>Penalties</div><div class="score-pill">${totalPen}</div></div>
-      <div class="score-row"><div>GIR</div><div class="score-pill">${girPct}</div></div>
+    <div class="card frost-card">
+      <div class="summary-grid">${summary.map(([k,v])=>`<div class="summary-chip"><span>${k}</span><strong>${v}</strong></div>`).join('')}</div>
     </div>
-    ${box(front)}
-    ${back.length ? box(back) : ''}`;
+    <div class="scorecard-columns">${box(front,0)}${back.length ? box(back,9) : ''}</div>`;
   document.getElementById('round-export-btn').onclick = ()=>exportRound(round.id);
   const btn = document.getElementById('round-save-course-btn');
   btn.textContent = round.sourceCourseId ? 'Update Saved Course' : 'Save Course';

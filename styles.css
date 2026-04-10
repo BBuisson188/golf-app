@@ -184,3 +184,16 @@ button:active{transform:scale(.985)}
 .small-title{font-size:1.2rem}
 .penalty-wrap{display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap}
 .tiny-meta-btn{min-width:22px;min-height:22px;border-radius:999px;padding:0;background:rgba(247,246,239,.92);box-shadow:var(--shadow);font-weight:700}
+
+.top-scroll-buffer{height:56px}
+#scorecard-list .row{align-items:flex-start}
+.scorecard-columns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.scorecard-row .inline-field input{width:42px !important;text-align:center}
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.summary-chip{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.78);border:1px solid var(--line)}
+.qf-mini,.qf-value-wrap,.secondary,.text-btn,.score-pill{touch-action:manipulation}
+
+@media (max-width:520px){
+  #scorecard-list > .scorecard-columns{display:grid !important;grid-template-columns:1fr 1fr !important;gap:8px}
+  #scorecard-list > .scorecard-columns .row{flex-direction:column}
+}
