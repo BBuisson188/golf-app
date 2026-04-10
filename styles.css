@@ -53,7 +53,6 @@ button:active{transform:scale(.985)}
 .start-round-btn{width:100%}
 .compact-image-btn img{width:100%}
 .footer-art-btn img{width:100%}
-.map-top-btn{max-width:112px;align-self:flex-start}
 .text-btn{
   background:rgba(247,246,239,.88);
   color:var(--text);
@@ -102,28 +101,33 @@ button:active{transform:scale(.985)}
 .inline-field input{width:72px;padding:8px 10px}
 .hole-meta{display:flex;gap:16px;padding-top:8px;color:var(--muted);font-weight:600}
 .hole-card{padding:14px}
-.hole-upper-row{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;align-items:stretch}
+.hole-upper-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
 .current-lie-shell{position:relative;background:transparent;padding:0;border-radius:20px;overflow:hidden}
 .current-lie-shell img{display:block;width:100%;height:auto}
 .current-lie-text{
-  position:absolute;left:42%;right:14%;top:48%;transform:translateY(-5%);
-  font-size:2rem;line-height:1;text-align:center;color:#faf7e9;
-  text-shadow:0 3px 6px rgba(0,0,0,.35);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+  position:absolute;left:50%;right:12%;top:50%;transform:translateY(-50%);
+  font-size:1.85rem;line-height:1;text-align:left;color:#e9cc74;
+  text-shadow:-1px -1px 0 rgba(44,26,8,.9),1px -1px 0 rgba(44,26,8,.9),-1px 1px 0 rgba(44,26,8,.9),1px 1px 0 rgba(44,26,8,.9),0 3px 6px rgba(0,0,0,.45);
+  font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
 .pin-estimate-box{background:rgba(247,246,239,.86);border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;border:1px solid rgba(29,74,52,.08)}
+.pin-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center}
+.map-inline-btn{width:84px;justify-self:end}
+.map-inline-btn img{width:100%;height:auto}
+
 .estimate-value{font-size:2rem;font-weight:700}
-.manual-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}
+.manual-row{display:flex;justify-content:flex-end}
 .manual-pin-wrap{display:flex;align-items:center;gap:10px;background:rgba(247,246,239,.86);border:1px solid rgba(29,74,52,.08);border-radius:18px;padding:12px 14px}
 .manual-pin-wrap span{font-size:.94rem;color:var(--text);font-weight:600}
 .manual-pin-wrap input{width:86px;padding:10px 10px;border:1px solid var(--line);border-radius:12px;background:#fff}
-.quick-finish-btn{max-width:320px}
+.quick-finish-btn{max-width:220px;align-self:flex-end}
 .compact-pickers .compact-picker{padding:14px;background:rgba(247,246,239,.86);border:1px solid rgba(29,74,52,.08)}
 .picker-btn{display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-radius:18px;box-shadow:var(--shadow)}
 .value{font-weight:700;font-size:1.08rem}
 .gps-row{display:flex;align-items:center;gap:8px}
 .gps-chip{display:inline-flex;align-items:center;background:#d9ead2;color:var(--green);padding:10px 12px;border-radius:999px;font-weight:700}
 .hero-slot{display:flex;justify-content:center}
-.hero-image-btn{width:min(100%,620px)}
+.hero-image-btn{width:min(100%,620px);margin-bottom:4px}
 .hero-ball-btn{
   width:min(100%,620px);padding:22px 16px;border-radius:26px;
   background:linear-gradient(180deg,#2c7c49,#1d5a35);color:#fff;
@@ -157,16 +161,15 @@ button:active{transform:scale(.985)}
 .leaflet-container{background:#dfe7dd}
 .line-bubble{background:#fff;border:2px solid #f0c600;color:#1c2b20;border-radius:999px;padding:3px 8px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.18)}
 @media (max-width:700px){
-  .hole-top-grid{grid-template-columns:1fr 1fr;align-items:stretch}
-  .hole-upper-row{grid-template-columns:1fr}
-  .map-top-btn{max-width:none}
+  .hole-top-grid{grid-template-columns:1fr 1fr 1fr;align-items:stretch}
+  .hole-upper-row{grid-template-columns:1fr auto}
 }
 @media (max-width:520px){
   .view-pad{padding:0 10px 16px}
   .row{flex-direction:column}
   .manual-row{grid-template-columns:1fr}
-  .compact-pickers,.pair-row,.footer-art-row,.home-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .current-lie-text{font-size:1.6rem;left:39%;right:12%}
+  .compact-pickers,.pair-row,.footer-art-row,.home-action-grid,.pin-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .current-lie-text{font-size:1.45rem;left:50%;right:10%}
   .estimate-value{font-size:1.7rem}
   .hero-ball-btn{font-size:1.7rem}
 }

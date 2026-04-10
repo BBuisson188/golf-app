@@ -219,11 +219,9 @@ function holeElems(){
     startRow: document.getElementById('start-gps-row'),
     startGpsAcc: document.getElementById('start-gps-accuracy'),
     undoSetup: document.getElementById('undo-shot-btn'),
-    undoWait: document.getElementById('undo-wait-shot-btn'),
     hitBtn: document.getElementById('hit-from-here-btn'),
     ballBtn: document.getElementById('ball-is-here-btn'),
-    setupPair: document.getElementById('setup-pair-row'),
-    waitPair: document.getElementById('wait-pair-row'),
+    nextRow: document.getElementById('single-next-row'),
   }
 }
 function renderHole(){
@@ -249,10 +247,8 @@ function renderHole(){
   el.startGpsAcc.textContent = `GPS ±${draft.startAccuracyYd ?? '—'} yd`;
   el.hitBtn.hidden = !!draft.started;
   el.ballBtn.hidden = !draft.started;
-  el.setupPair.hidden = !!draft.started;
-  el.waitPair.hidden = !draft.started;
-  el.undoSetup.hidden = !hole.startUndoVisible;
-  el.undoWait.hidden = !hole.waitUndoVisible;
+  el.nextRow.hidden = false;
+  el.undoSetup.hidden = !(hole.startUndoVisible || hole.waitUndoVisible);
   document.getElementById('scorecard-subtitle').textContent = round.courseName;
   document.getElementById('map-title').textContent = `Hole ${hole.holeNumber} Map`;
   document.getElementById('map-subtitle').textContent = `Par ${hole.par} • Yardage ${hole.holeYardage || '—'}`;
@@ -279,7 +275,17 @@ document.getElementById('manual-pin-input').addEventListener('input', e=>{
 });
 document.getElementById('club-btn').addEventListener('click', ()=>{
   const hole = getCurrentHole(getActiveRound()); const draft=ensureShotDraft(hole);
-  openSheet('Select Club', clubOptions.map(v=>({label:v, action:()=>{draft.club=v; saveData(); render(); closeSheet();}})), 'option-grid-3');
+  const columns = [
+    ['Driver','3 Wood','5 Wood','5 Hybrid','3 Iron'],
+    ['4 Iron','5 Iron','6 Iron','7 Iron','8 Iron','9 Iron'],
+    ['PW','GW','SW','LW','Putter']
+  ];
+  const html = `<div class="option-grid-3">${columns.map(col=>`<div class="stack">${col.map(v=>`<button class="option-btn club-pick" data-club="${v}">${v}</button>`).join('')}</div>`).join('')}</div>`;
+  openModal('Select Club', html, ()=>{
+    document.querySelectorAll('.club-pick').forEach(btn=>btn.onclick = ()=>{
+      draft.club = btn.dataset.club; saveData(); render(); closeModal();
+    });
+  });
 });
 document.getElementById('swing-btn').addEventListener('click', ()=>{
   const hole = getCurrentHole(getActiveRound()); const draft=ensureShotDraft(hole);
@@ -343,8 +349,7 @@ function advanceNextShot(context){
   else { hole.waitUndoVisible = true; hole.startUndoVisible = false; hole.currentShotDraft.started = false; }
   saveData(); render();
 }
-document.getElementById('next-shot-setup-btn').addEventListener('click', ()=>advanceNextShot('setup'));
-document.getElementById('next-shot-wait-btn').addEventListener('click', ()=>advanceNextShot('wait'));
+document.getElementById('next-shot-btn').addEventListener('click', ()=>{ const hole=getCurrentHole(getActiveRound()); const draft=ensureShotDraft(hole); advanceNextShot(draft.started ? 'wait' : 'setup'); });
 function undoNextShot(context){
   const round = getActiveRound(); const hole = getCurrentHole(round);
   if(hole.shots.length) hole.shots.pop();
@@ -377,8 +382,7 @@ function undoNextShot(context){
   hole.waitUndoVisible = false;
   saveData(); render();
 }
-document.getElementById('undo-shot-btn').addEventListener('click', ()=>undoNextShot('setup'));
-document.getElementById('undo-wait-shot-btn').addEventListener('click', ()=>undoNextShot('wait'));
+document.getElementById('undo-shot-btn').addEventListener('click', ()=>{ const hole=getCurrentHole(getActiveRound()); undoNextShot(hole.waitUndoVisible ? 'wait' : 'setup'); });
 
 document.getElementById('ball-is-here-btn').addEventListener('click', async ()=>{
   const geo = await captureLocation();
@@ -523,7 +527,7 @@ function goToNextHole(){
     showView('hole', false);
   }
 }
-document.getElementById('quick-finish-btn').addEventListener('click', openQuickFinish);
+document.getElementById('quick-finish-btn').addEventListener('click', ()=>openQuickFinish());
 function openQuickFinish(prefillScore=null){
   const hole = getCurrentHole(getActiveRound());
   let score = prefillScore || hole.score || Number(hole.par || 4) || 4;
@@ -616,11 +620,38 @@ function renderRoundDetail(){
   document.getElementById('round-detail-title').textContent = round.courseName;
   document.getElementById('round-detail-subtitle').textContent = `${new Date(round.createdAt).toLocaleDateString()} • ${round.holesCount} holes`;
   const wrap = document.getElementById('round-detail-holes');
-  wrap.innerHTML = round.holes.map(h=>`
-    <div class="hole-row">
-      <div>Hole ${h.holeNumber} • Par ${h.par}</div>
-      <div class="score-pill">${h.score || '—'}</div>
-    </div>`).join('');
+  const front = round.holes.slice(0,9);
+  const back = round.holes.slice(9);
+  const frontScore = front.reduce((a,h)=>a+(Number(h.score)||0),0);
+  const backScore = back.reduce((a,h)=>a+(Number(h.score)||0),0);
+  const totalScore = round.holes.reduce((a,h)=>a+(Number(h.score)||0),0);
+  const teeDriverShots = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee' && (s.club||'').toLowerCase()==='driver' && s.gpsDistance!=null)).filter(Boolean);
+  const avgDrive = teeDriverShots.length ? Math.round(teeDriverShots.reduce((a,s)=>a+s.gpsDistance,0)/teeDriverShots.length) : '—';
+  const fairwayHits = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee')).filter(Boolean).filter(s=>['fairway','first_cut','fringe','cup','green'].includes((s.endLie||'').toLowerCase())).length;
+  const fairwayMisses = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee')).filter(Boolean).filter(s=>['rough','bunker','penalty','recovery'].includes((s.endLie||'').toLowerCase())).length;
+  const puttHoles = round.holes.filter(h=>h.puttCount != null);
+  const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+Number(h.puttCount||0),0)/puttHoles.length).toFixed(1) : '—';
+  const totalPen = round.holes.reduce((a,h)=>a+Number(h.penaltyStrokes||0),0);
+  const girMade = round.holes.filter(h=>{ const greenShot = h.shots.find(s=>(s.endLie||'').toLowerCase()==='green' || (s.endLie||'').toLowerCase()==='cup'); if(!greenShot) return false; return greenShot.shotNumber <= (Number(h.par||4)-2); }).length;
+  const girPct = round.holes.length ? `${Math.round((girMade/round.holes.length)*100)}%` : '—';
+  const box = holes => `
+    <div class="card stack frost-card" style="gap:6px">
+      ${holes.map(h=>`<div class="score-row" style="padding:8px 10px"><div>Hole ${h.holeNumber}</div><div>Par ${h.par}</div><div class="score-pill">${h.score || '—'}</div></div>`).join('')}
+    </div>`;
+  wrap.innerHTML = `
+    <div class="card stack frost-card">
+      <div class="score-row"><div>Avg Drive</div><div class="score-pill">${avgDrive}</div></div>
+      <div class="score-row"><div>Fairways Hit</div><div class="score-pill">${fairwayHits}</div></div>
+      <div class="score-row"><div>Fairways Missed</div><div class="score-pill">${fairwayMisses}</div></div>
+      <div class="score-row"><div>Avg Putts</div><div class="score-pill">${avgPutts}</div></div>
+      <div class="score-row"><div>Front 9</div><div class="score-pill">${frontScore || '—'}</div></div>
+      <div class="score-row"><div>Back 9</div><div class="score-pill">${back.length ? backScore : '—'}</div></div>
+      <div class="score-row"><div>Total</div><div class="score-pill">${totalScore || '—'}</div></div>
+      <div class="score-row"><div>Penalties</div><div class="score-pill">${totalPen}</div></div>
+      <div class="score-row"><div>GIR</div><div class="score-pill">${girPct}</div></div>
+    </div>
+    ${box(front)}
+    ${back.length ? box(back) : ''}`;
   document.getElementById('round-export-btn').onclick = ()=>exportRound(round.id);
   const btn = document.getElementById('round-save-course-btn');
   btn.textContent = round.sourceCourseId ? 'Update Saved Course' : 'Save Course';
@@ -646,8 +677,9 @@ function renderCourses(){
   root.innerHTML = state.courses.map(c=>`
     <div class="course-row">
       <div><strong>${escapeHtml(c.name)}</strong><br><span class="subtle">${c.holesCount} holes</span></div>
-      <div style="display:flex; gap:8px">
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
         <button class="secondary course-load" data-id="${c.id}">Load</button>
+        <button class="secondary course-edit" data-id="${c.id}">Edit</button>
         <button class="danger course-delete" data-id="${c.id}">Delete</button>
       </div>
     </div>`).join('');
@@ -655,6 +687,29 @@ function renderCourses(){
     document.getElementById('start-course-select').value = btn.dataset.id;
     document.getElementById('start-course-name').value = state.courses.find(c=>c.id===btn.dataset.id)?.name || '';
     showView('start-round');
+  });
+  root.querySelectorAll('.course-edit').forEach(btn=>btn.onclick = ()=>{
+    const c = state.courses.find(x=>x.id===btn.dataset.id); if(!c) return;
+    const rows = c.holes.map((h,i)=>`
+      <div class="score-row">
+        <div style="min-width:72px">Hole ${h.holeNumber}</div>
+        <input class="course-par-input" data-idx="${i}" type="number" min="3" max="7" value="${h.par}" style="width:72px;padding:10px;border:1px solid #d8ddcf;border-radius:12px">
+        <input class="course-yardage-input" data-idx="${i}" type="number" min="0" max="999" value="${h.yardage || ''}" style="width:96px;padding:10px;border:1px solid #d8ddcf;border-radius:12px">
+      </div>`).join('');
+    const html = `
+      <div class="stack">
+        <label class="field"><span>Course Name</span><input id="course-edit-name" type="text" value="${escapeHtml(c.name)}"></label>
+        ${rows}
+        <button id="save-course-edit" class="secondary">Save Course</button>
+      </div>`;
+    openModal('Edit Course', html, ()=>{
+      document.getElementById('save-course-edit').onclick = ()=>{
+        c.name = document.getElementById('course-edit-name').value.trim() || c.name;
+        document.querySelectorAll('.course-par-input').forEach(inp=>{ c.holes[Number(inp.dataset.idx)].par = Number(inp.value) || c.holes[Number(inp.dataset.idx)].par; });
+        document.querySelectorAll('.course-yardage-input').forEach(inp=>{ c.holes[Number(inp.dataset.idx)].yardage = inp.value ? Number(inp.value) : ''; });
+        saveData(); closeModal(); render();
+      };
+    });
   });
   root.querySelectorAll('.course-delete').forEach(btn=>btn.onclick = ()=>{
     state.courses = state.courses.filter(c=>c.id!==btn.dataset.id);
@@ -752,6 +807,7 @@ document.getElementById('map-settings-btn').addEventListener('click', ()=>{
         <input id="maptiler-key-input" type="text" placeholder="Paste your key" value="${escapeHtml(key)}">
       </label>
       <div class="subtle">If blank, the map will fall back to OpenStreetMap.</div>
+      <div class="subtle">To obtain an API key create a free account at: <a href="https://www.maptiler.com" target="_blank" rel="noopener noreferrer">www.maptiler.com</a></div>
       <div class="row">
         <button id="save-maptiler-key" class="secondary">Save Key</button>
         <button id="clear-maptiler-key" class="danger">Clear Key</button>
@@ -800,10 +856,15 @@ function initMapIfNeeded(){
   mapReady = true;
   refreshMap();
 }
-function addMarker(latlng, color, radius=8){
-  return L.circleMarker(latlng, {
-    radius, color, weight:2, fillColor: color, fillOpacity:1
-  }).addTo(map);
+function pointIcon(color, size=16){
+  return L.divIcon({className:'', html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.35)"></div>`, iconSize:[size,size], iconAnchor:[size/2,size/2]});
+}
+function addMarker(latlng, color, radius=8, draggable=false, onDragEnd=null){
+  const marker = L.marker(latlng, {icon: pointIcon(color, radius*2), draggable}).addTo(map);
+  if(onDragEnd){
+    marker.on('dragend', e=>{ const ll = e.target.getLatLng(); onDragEnd({lat: ll.lat, lng: ll.lng}); });
+  }
+  return marker;
 }
 function labelIcon(text, border='#f0c600'){
   return L.divIcon({className:'', html:`<div class="line-bubble" style="border-color:${border}">${text}</div>`});
@@ -824,28 +885,31 @@ function refreshMap(){
   let current = hole.currentLocation || hole.currentShotDraft?.startGps || hole.pendingEndGps || hole.shots.slice().reverse().find(s=>s.endGps)?.endGps || hole.shots[0]?.startGps || null;
 
   if(current){
-    const m = addMarker(current, '#2d7ff9', 8);
+    const m = addMarker(current, '#2d7ff9', 8, true, ll=>{
+      if(hole.currentShotDraft?.started && hole.currentShotDraft.startGps){ hole.currentShotDraft.startGps = ll; }
+      else { hole.currentLocation = ll; }
+      saveData(); refreshMap();
+    });
     currentMarkers.push(m);
-    map.setView([current.lat, current.lng], Math.max(map.getZoom(), 17));
   }
 
   // historical shots in blue
-  let prev = null;
   hole.shots.forEach((s, idx)=>{
     if(s.startGps){
-      const dot = addMarker(s.startGps, '#2d7ff9', 6);
+      const dot = addMarker(s.startGps, '#2d7ff9', 6, true, ll=>{ s.startGps = ll; saveData(); refreshMap(); });
       currentMarkers.push(dot);
       if(s.endGps){
+        const endDot = addMarker(s.endGps, '#2d7ff9', 6, true, ll=>{ s.endGps = ll; saveData(); refreshMap(); });
+        currentMarkers.push(endDot);
         const line = L.polyline([[s.startGps.lat,s.startGps.lng],[s.endGps.lat,s.endGps.lng]], {color:'#2d7ff9', weight:3, opacity:.75}).addTo(map);
         currentMarkers.push(line);
       }
-      prev = s.endGps || s.startGps;
     }
   });
 
   // pin
   if(hole.pinLocation){
-    const pin = addMarker(hole.pinLocation, '#d02828', 8);
+    const pin = addMarker(hole.pinLocation, '#d02828', 8, true, ll=>{ hole.pinLocation = ll; saveData(); refreshMap(); });
     currentMarkers.push(pin);
   }
 
@@ -853,7 +917,7 @@ function refreshMap(){
   document.getElementById('plan-leg-1').textContent = '—';
   document.getElementById('plan-leg-2').textContent = '—';
   if(transientPlan && current){
-    const p = addMarker(transientPlan, '#e4c71a', 8);
+    const p = addMarker(transientPlan, '#e4c71a', 8, true, ll=>{ transientPlan = ll; refreshMap(); });
     currentMarkers.push(p);
     const line1 = L.polyline([[current.lat,current.lng],[transientPlan.lat,transientPlan.lng]], {color:'#e4c71a', weight:4, opacity:.95}).addTo(map);
     currentMarkers.push(line1);
