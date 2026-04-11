@@ -144,7 +144,7 @@ button:active{transform:scale(.985)}
 .sheet-overlay[hidden]{display:none !important}
 .sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.38);display:flex;align-items:flex-end;z-index:2000}
 .sheet{width:min(760px,100%);margin:0 auto;background:#f4f1e6;border-radius:22px 22px 0 0;padding:14px 14px 22px;max-height:82vh;overflow:auto}
-.modal{border-radius:22px;max-height:none;margin:auto;width:min(540px,calc(100% - 24px))}
+.modal{border-radius:22px;max-height:90vh;overflow:auto;margin:auto;width:min(540px,calc(100% - 24px))}
 .sheet-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px}
 .sheet-content{display:flex;flex-direction:column;gap:10px}
 .option-btn{background:#fff;border:1px solid var(--line);text-align:left;padding:14px 16px;border-radius:16px}

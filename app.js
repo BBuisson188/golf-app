@@ -71,7 +71,7 @@ function getRoundStats(round){
   const puttHoles = round.holes.filter(h=>h.puttCount != null);
   const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+Number(h.puttCount||0),0)/puttHoles.length).toFixed(1) : null;
   const totalPen = round.holes.reduce((a,h)=>a+Number(h.penaltyStrokes||0),0);
-  const girMade = round.holes.filter(h=>{ const greenShot = h.shots.find(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!greenShot) return false; return greenShot.shotNumber <= (Number(h.par||4)-2); }).length;
+  const girMade = round.holes.filter(h=>{ const reachedGreen = h.puttCount != null || ['green','cup'].includes((h.currentLie||'').toLowerCase()) || h.shots.some(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!reachedGreen) return false; const nonPuttStrokes = (h.shots || []).length; return nonPuttStrokes <= (Number(h.par||4)-2); }).length;
   return [
     ['Avg Drive', avgDrive],
     ['Fairways Hit', fairwayHitCount > 0 ? fairwayHitCount : null],
@@ -407,9 +407,10 @@ function advanceNextShot(context){
   if(draft.shotNumber === 1 && (!hole.currentLie || hole.currentLie === 'Tee')) selectedLie = 'Fairway';
   const normalizedLie = selectedLie.toLowerCase().replace(' ','_');
   const selectedClub = draft.club || '';
+  const startLieNorm = (draft.startLie || '').toLowerCase().replace(' ','_');
 
   if(normalizedLie === 'cup'){
-    if((selectedClub || '').toLowerCase() === 'putter' || (draft.startLie || '').toLowerCase() === 'green' || (hole.currentLie || '').toLowerCase() === 'green'){
+    if(startLieNorm === 'green' || (selectedClub || '').toLowerCase() === 'putter'){
       hole.puttCount = (hole.puttCount || 0) + 1;
     } else {
       hole.shots.push({
@@ -431,13 +432,32 @@ function advanceNextShot(context){
       });
     }
     hole.currentLie = 'Cup';
-    hole.puttCount = hole.puttCount ?? 0;
     saveData();
     finalizeHoleAuto();
     return;
   }
 
-  if(normalizedLie === 'green' || (selectedClub || '').toLowerCase() === 'putter'){
+  if(normalizedLie === 'green' && startLieNorm !== 'green'){
+    hole.shots.push({
+      shotNumber: draft.shotNumber,
+      club: selectedClub || '',
+      swingType: draft.swingType || '',
+      manualPinYardage: draft.manualPinYardage || '',
+      estimatedPinYardage: draft.estimatedPinYardage || '',
+      startLie: draft.startLie || (draft.shotNumber === 1 ? 'Tee' : 'Fairway'),
+      endLie: 'green',
+      resultType: 'green',
+      started: !!draft.started,
+      startGps: draft.startGps || null,
+      startAccuracyYd: draft.startAccuracyYd || null,
+      endGps: null,
+      endAccuracyYd: null,
+      gpsDistance: null,
+      notes: 'Advanced via Next Shot'
+    });
+    hole.currentLie = 'Green';
+    hole.currentShotDraft = buildDraft(round, hole, {club: 'Putter', startLie: 'Green'});
+  } else if(startLieNorm === 'green' || (selectedClub || '').toLowerCase() === 'putter'){
     hole.puttCount = (hole.puttCount || 0) + 1;
     hole.currentLie = 'Green';
     hole.currentShotDraft = buildDraft(round, hole, {club: 'Putter', startLie: 'Green'});
@@ -811,7 +831,7 @@ function renderRoundDetail(){
   const puttHoles = round.holes.filter(h=>h.puttCount != null);
   const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+Number(h.puttCount||0),0)/puttHoles.length).toFixed(1) : null;
   const totalPen = round.holes.reduce((a,h)=>a+Number(h.penaltyStrokes||0),0);
-  const girMade = round.holes.filter(h=>{ const greenShot = h.shots.find(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!greenShot) return false; return greenShot.shotNumber <= (Number(h.par||4)-2); }).length;
+  const girMade = round.holes.filter(h=>{ const reachedGreen = h.puttCount != null || ['green','cup'].includes((h.currentLie||'').toLowerCase()) || h.shots.some(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!reachedGreen) return false; const nonPuttStrokes = (h.shots || []).length; return nonPuttStrokes <= (Number(h.par||4)-2); }).length;
   const summary = getRoundStats(round);
   const box = (holes, offset=0) => `
     <div class="card stack frost-card" style="gap:6px">
