@@ -1,5 +1,6 @@
 
 const STORAGE_KEY = 'green-caddie-data-v1';
+const APP_VERSION = '1.14';
 const defaultData = { rounds: [], courses: [], settings: {} };
 let state = loadData();
 state.rounds = (state.rounds || []).map(r=>{
@@ -150,14 +151,14 @@ function updateCourseFromRound(course, round){
   return course;
 }
 function computeEstimatedToPin(round, hole){
-  // priority: current round pin, last known pin (already copied), fallback hole yardage
-  const from = hole.pendingStartGps || hole.currentLocation || null;
+  const from = hole.currentLocation || hole.currentShotDraft?.startGps || null;
   if(hole.pinLocation && from){
     const meters = metersBetween(from, hole.pinLocation);
     return meters != null ? yardsFromMeters(meters) : null;
   }
   if(hole.holeYardage){
-    return Number(hole.holeYardage);
+    const traveled = (hole.shots || []).reduce((sum,s)=>sum + Number(s.gpsDistance || 0), 0);
+    return Math.max(0, Number(hole.holeYardage) - traveled);
   }
   return null;
 }
@@ -192,6 +193,7 @@ function ensureShotDraft(hole){
 }
 function clearDraft(hole){ delete hole.currentShotDraft; delete hole.pendingEndGps; delete hole.pendingEndAccYd; delete hole.pendingStartGps; delete hole.pendingStartAccYd; delete hole.startUndoVisible; delete hole.waitUndoVisible; }
 function render(){
+  const v=document.getElementById('app-version'); if(v) v.textContent = `v${APP_VERSION}`;
   renderResumeButton();
   renderStartRound();
   renderHole();
@@ -247,21 +249,29 @@ function renderResumeButton(){
 
 function renderStartRound(){
   const sel = document.getElementById('start-course-select');
+  const pending = state.settings.pendingCourseId || sel.value || '';
   sel.innerHTML = '<option value="">New course / no template</option>' + state.courses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  if(pending) sel.value = pending;
+  const c = state.courses.find(x=>x.id===sel.value);
+  if(c) document.getElementById('start-course-name').value = c.name || '';
 }
 document.querySelectorAll('.seg').forEach(btn => btn.addEventListener('click', ()=>{
   document.querySelectorAll('.seg').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
 }));
 document.getElementById('start-course-select').addEventListener('change', e=>{
+  state.settings.pendingCourseId = e.target.value || '';
   const c = state.courses.find(x=>x.id===e.target.value);
   document.getElementById('start-course-name').value = c?.name || '';
+  saveData();
 });
 document.getElementById('start-round-btn').addEventListener('click', ()=>{
   const holesCount = Number(document.querySelector('.seg.active').dataset.holes);
   const courseId = document.getElementById('start-course-select').value;
   const sourceCourse = state.courses.find(c=>c.id===courseId) || null;
   const courseName = document.getElementById('start-course-name').value.trim();
+  state.settings.pendingCourseId = courseId || '';
+
   const round = createRound({courseName, holesCount, sourceCourse});
   state.rounds.unshift(round);
   setActiveRound(round.id);
@@ -381,6 +391,7 @@ document.getElementById('hit-from-here-btn').addEventListener('click', async ()=
   const geo = await captureLocation();
   if(geo){
     draft.startGps = geo.latlng;
+    hole.currentLocation = geo.latlng;
     draft.startAccuracyYd = yardsFromMeters(geo.accuracy);
     draft.started = true;
     draft.startLie = hole.currentLie || draft.startLie;
@@ -393,6 +404,7 @@ document.getElementById('refresh-start-gps-btn').addEventListener('click', async
   const geo = await captureLocation();
   if(geo){
     draft.startGps = geo.latlng;
+    hole.currentLocation = geo.latlng;
     draft.startAccuracyYd = yardsFromMeters(geo.accuracy);
     saveData(); render();
   }
@@ -559,11 +571,12 @@ function applyResult(result){
     shot.gpsDistance = null;
   }
   hole.shots.push(shot);
+  if(normalized !== 'penalty' && hole.pendingEndGps) hole.currentLocation = hole.pendingEndGps;
   closeModal();
 
   if(normalized === 'green'){
     hole.currentLie = 'Green';
-    hole.currentShotDraft = null;
+    hole.currentShotDraft = buildDraft(round, hole, {startLie: 'Green', club: 'Putter'});
     openPuttingModal();
   } else if(normalized === 'cup'){
     hole.currentLie = 'Cup';
@@ -587,21 +600,22 @@ function openPuttingModal(){
   if(hole.puttCount == null) hole.puttCount = 2;
   const html = `
     <div class="stack">
-      <div class="subtle">On Green</div>
-      <div class="row" style="align-items:center">
-        <button id="putt-minus" class="secondary">-</button>
-        <div class="card" style="text-align:center"><div class="value" id="putt-count-display">${hole.puttCount}</div></div>
-        <button id="putt-plus" class="secondary">+</button>
+      <button id="go-back-putting-btn" class="secondary">Go Back to Putting</button>
+      <div class="qf-grid">
+        <div class="qf-label">Putts to finish</div>
+        <div class="qf-value-wrap">
+          <button id="putt-minus" class="secondary qf-mini">−</button>
+          <div class="qf-value" id="putt-count-display">${hole.puttCount}</div>
+          <button id="putt-plus" class="secondary qf-mini">+</button>
+        </div>
       </div>
-      <button id="finish-hole-btn" class="primary">Finish Hole</button>
+      <button id="finish-hole-btn" class="secondary">Finish Hole</button>
     </div>`;
   openModal(`Hole ${hole.holeNumber}`, html, ()=>{
     document.getElementById('putt-minus').onclick = ()=>{ hole.puttCount = Math.max(1, (hole.puttCount||2)-1); openPuttingModal(); saveData(); };
     document.getElementById('putt-plus').onclick = ()=>{ hole.puttCount = (hole.puttCount||2)+1; openPuttingModal(); saveData(); };
-    document.getElementById('finish-hole-btn').onclick = ()=>{
-      finalizeHoleAuto();
-      closeModal();
-    };
+    document.getElementById('go-back-putting-btn').onclick = ()=>{ closeModal(); saveData(); render(); };
+    document.getElementById('finish-hole-btn').onclick = ()=>{ finalizeHoleAuto(); closeModal(); };
   });
 }
 function finalizeHoleAuto(){
@@ -874,7 +888,8 @@ function renderCourses(){
       </div>
     </div>`).join('');
   root.querySelectorAll('.course-load').forEach(btn=>btn.onclick = ()=>{
-    document.getElementById('start-course-select').value = btn.dataset.id;
+    state.settings.pendingCourseId = btn.dataset.id;
+    saveData();
     document.getElementById('start-course-name').value = state.courses.find(c=>c.id===btn.dataset.id)?.name || '';
     showView('start-round');
   });
@@ -1047,11 +1062,11 @@ function initMapIfNeeded(){
       saveData();
       mapMode = null;
       transientUndo = null;
-      refreshMap();
+      refreshMap(); render();
     } else if(mapMode === 'plan-shot'){
       transientPlan = {lat: e.latlng.lat, lng: e.latlng.lng};
       mapMode = null;
-      refreshMap();
+      refreshMap(); render();
     }
   });
   mapReady = true;
@@ -1133,7 +1148,7 @@ function refreshMap(){
 
   // pin
   if(hole.pinLocation){
-    const pin = addMarker(hole.pinLocation, '#d02828', 8, true, ll=>{ hole.pinLocation = ll; saveData(); refreshMap(); });
+    const pin = addMarker(hole.pinLocation, '#d02828', 8, true, ll=>{ hole.pinLocation = ll; saveData(); refreshMap(); render(); });
     currentMarkers.push(pin);
   }
 
@@ -1142,7 +1157,7 @@ function refreshMap(){
   document.getElementById('plan-leg-2').textContent = '—';
   updateMapActionButtons(current, hole);
   if(transientPlan && current){
-    const p = addMarker(transientPlan, '#e4c71a', 8, true, ll=>{ transientPlan = ll; refreshMap(); });
+    const p = addMarker(transientPlan, '#e4c71a', 8, true, ll=>{ transientPlan = ll; refreshMap(); render(); });
     currentMarkers.push(p);
     const line1 = L.polyline([[current.lat,current.lng],[transientPlan.lat,transientPlan.lng]], {color:'#e4c71a', weight:4, opacity:.95}).addTo(map);
     currentMarkers.push(line1);
