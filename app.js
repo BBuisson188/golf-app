@@ -1,8 +1,9 @@
 
 const STORAGE_KEY = 'green-caddie-data-v1';
-const APP_VERSION = '1.14';
+const APP_VERSION = '1.16';
 const defaultData = { rounds: [], courses: [], settings: {} };
 let state = loadData();
+state.settings.mapBase = state.settings.mapBase || 'osm';
 state.rounds = (state.rounds || []).map(r=>{
   if(!r.otherPlayers){
     r.otherPlayers = { extraCount: 1, names: ['Me','Player 2','Player 3','Player 4'], scores: Array.from({length:3}, ()=>Array.from({length: r.holesCount || r.holes?.length || 18}, ()=>'')) };
@@ -991,7 +992,8 @@ function updateTileLayer(){
   if(!map) return;
   if(tileLayer){ map.removeLayer(tileLayer); tileLayer = null; }
   const key = getMaptilerKey();
-  if(key){
+  const mode = state.settings.mapBase || 'osm';
+  if(key && mode === 'sat'){
     tileLayer = L.tileLayer(`https://api.maptiler.com/maps/satellite/{z}/{x}/{y}.jpg?key=${key}`, {
       tileSize: 256, maxZoom: 20, attribution: '&copy; MapTiler &copy; OpenStreetMap'
     });
@@ -1001,6 +1003,15 @@ function updateTileLayer(){
     });
   }
   tileLayer.addTo(map);
+  const toggle = document.getElementById('map-toggle-btn');
+  if(toggle){
+    if(key){
+      toggle.hidden = false;
+      toggle.textContent = mode === 'sat' ? 'OSM' : 'SAT';
+    } else {
+      toggle.hidden = true;
+    }
+  }
 }
 
 // map
@@ -1046,6 +1057,14 @@ document.getElementById('map-settings-btn').addEventListener('click', ()=>{
     };
   });
 });
+
+document.getElementById('map-toggle-btn').addEventListener('click', ()=>{
+  if(!getMaptilerKey()) return;
+  state.settings.mapBase = (state.settings.mapBase || 'osm') === 'sat' ? 'osm' : 'sat';
+  saveData();
+  updateTileLayer();
+});
+
 function initMapIfNeeded(){
   if(mapReady){
     refreshMap();
