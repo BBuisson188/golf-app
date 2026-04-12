@@ -1,6 +1,6 @@
 
 const STORAGE_KEY = 'green-caddie-data-v1';
-const APP_VERSION = '1.16';
+const APP_VERSION = '1.19';
 const defaultData = { rounds: [], courses: [], settings: {} };
 let state = loadData();
 state.settings.mapBase = state.settings.mapBase || 'osm';
@@ -57,6 +57,107 @@ function getCurrentHole(round){
   return round.holes[round.currentHoleIndex || 0];
 }
 
+function normalizeLie(lie=''){
+  return String(lie || '').trim().toLowerCase().replace(/\s+/g, '_');
+}
+function titleLie(lie=''){
+  const normalized = normalizeLie(lie);
+  if(!normalized) return 'Unknown';
+  return normalized.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+}
+function isPuttShot(shot){
+  return (shot?.club || '').toLowerCase() === 'putter' || normalizeLie(shot?.startLie) === 'green';
+}
+function getShotPuttCount(hole){
+  return (hole.shots || []).filter(isPuttShot).length;
+}
+function getHolePuttCount(hole){
+  return Math.max(Number(hole.puttCount || 0), getShotPuttCount(hole));
+}
+function getHoleNonPuttShotCount(hole){
+  return (hole.shots || []).filter(shot => !isPuttShot(shot)).length;
+}
+function getHoleRecordedStrokeCount(hole){
+  return getHoleNonPuttShotCount(hole) + getHolePuttCount(hole) + Number(hole.penaltyStrokes || 0);
+}
+function renumberHoleShots(hole){
+  (hole.shots || []).forEach((shot, index)=>{
+    shot.shotNumber = index + 1;
+  });
+}
+function createPlaceholderShot(hole, overrides={}){
+  return {
+    shotNumber: (hole.shots?.length || 0) + 1,
+    club: overrides.club ?? '',
+    swingType: overrides.swingType ?? '',
+    manualPinYardage: overrides.manualPinYardage ?? '',
+    estimatedPinYardage: overrides.estimatedPinYardage ?? '',
+    startLie: overrides.startLie ?? '',
+    startGps: overrides.startGps ?? null,
+    startAccuracyYd: overrides.startAccuracyYd ?? null,
+    endLie: overrides.endLie ?? '',
+    endGps: overrides.endGps ?? null,
+    endAccuracyYd: overrides.endAccuracyYd ?? null,
+    resultType: overrides.resultType ?? '',
+    started: !!overrides.started,
+    gpsDistance: overrides.gpsDistance ?? null,
+    notes: overrides.notes ?? 'Added via Quick Finish'
+  };
+}
+function getConflictEntries(hole){
+  const entries = [];
+  (hole.shots || []).forEach((shot, index)=>{
+    const parts = [`Shot ${index + 1}`];
+    if(shot.club) parts.push(shot.club);
+    if(shot.startLie) parts.push(titleLie(shot.startLie));
+    if(shot.gpsDistance != null) parts.push(`${shot.gpsDistance} yd`);
+    if(!shot.club && !shot.startLie && shot.gpsDistance == null) parts.push('Unknown details');
+    entries.push({
+      kind: 'shot',
+      index,
+      label: parts.join(' - ')
+    });
+  });
+  const legacyPutts = Math.max(0, Number(hole.puttCount || 0) - getShotPuttCount(hole));
+  for(let i=0; i<legacyPutts; i+=1){
+    entries.push({
+      kind: 'legacy-putt',
+      index: i,
+      label: `Putt ${getShotPuttCount(hole) + i + 1} - Saved count only`
+    });
+  }
+  for(let i=0; i<Number(hole.penaltyStrokes || 0); i+=1){
+    entries.push({
+      kind: 'penalty',
+      index: i,
+      label: `Penalty Stroke ${i + 1}`
+    });
+  }
+  return entries;
+}
+function removeConflictEntry(hole, entry){
+  if(entry.kind === 'shot'){
+    hole.shots.splice(entry.index, 1);
+    renumberHoleShots(hole);
+  } else if(entry.kind === 'legacy-putt'){
+    hole.puttCount = Math.max(0, Number(hole.puttCount || 0) - 1);
+  } else if(entry.kind === 'penalty'){
+    hole.penaltyStrokes = Math.max(0, Number(hole.penaltyStrokes || 0) - 1);
+  }
+}
+function syncLegacyPuttsToShots(hole){
+  const legacyPutts = Math.max(0, getHolePuttCount(hole) - getShotPuttCount(hole));
+  for(let i=0; i<legacyPutts; i+=1){
+    hole.shots.push(createPlaceholderShot(hole, {
+      club: 'Putter',
+      notes: 'Converted from saved putt count'
+    }));
+  }
+  if(legacyPutts > 0){
+    renumberHoleShots(hole);
+  }
+}
+
 
 function getRoundStats(round){
   const front = round.holes.slice(0,9); const back = round.holes.slice(9);
@@ -70,10 +171,10 @@ function getRoundStats(round){
   const teeShots = round.holes.map(h=>h.shots.find(s=>(s.startLie||'').toLowerCase()==='tee')).filter(Boolean);
   const fairwayHitCount = teeShots.length ? teeShots.filter(s=>['fairway','first_cut','fringe','cup','green'].includes((s.endLie||'').toLowerCase())).length : 0;
   const fairwayMissCount = teeShots.length ? teeShots.filter(s=>['rough','bunker','penalty','recovery'].includes((s.endLie||'').toLowerCase())).length : 0;
-  const puttHoles = round.holes.filter(h=>h.puttCount != null);
-  const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+Number(h.puttCount||0),0)/puttHoles.length).toFixed(1) : null;
+  const puttHoles = round.holes.filter(h=>getHolePuttCount(h) > 0);
+  const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+getHolePuttCount(h),0)/puttHoles.length).toFixed(1) : null;
   const totalPen = round.holes.reduce((a,h)=>a+Number(h.penaltyStrokes||0),0);
-  const girMade = round.holes.filter(h=>{ const reachedGreen = h.puttCount != null || ['green','cup'].includes((h.currentLie||'').toLowerCase()) || h.shots.some(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!reachedGreen) return false; const nonPuttStrokes = (h.shots || []).length; return nonPuttStrokes <= (Number(h.par||4)-2); }).length;
+  const girMade = round.holes.filter(h=>{ const reachedGreen = getHolePuttCount(h) > 0 || ['green','cup'].includes((h.currentLie||'').toLowerCase()) || h.shots.some(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!reachedGreen) return false; const nonPuttStrokes = getHoleNonPuttShotCount(h); return nonPuttStrokes <= (Number(h.par||4)-2); }).length;
   return [
     ['Avg Drive', avgDrive],
     ['Fairways Hit', fairwayHitCount > 0 ? fairwayHitCount : null],
@@ -164,7 +265,7 @@ function computeEstimatedToPin(round, hole){
   return null;
 }
 function buildDraft(round, hole, overrides={}){
-  const shotNumber = (hole.shots.length || 0) + (hole.puttCount || 0) + 1;
+  const shotNumber = getHoleNonPuttShotCount(hole) + getHolePuttCount(hole) + 1;
   const baseLie = overrides.startLie || hole.currentLie || (hole.shots.length === 0 ? 'Tee' : 'Fairway');
   let defaultClub = '';
   if((baseLie || '').toLowerCase() === 'green' || (baseLie || '').toLowerCase() === 'cup') defaultClub = 'Putter';
@@ -319,6 +420,9 @@ function renderHole(){
   const round = getActiveRound();
   if(!round){ return; }
   const hole = getCurrentHole(round);
+  if(round.status === 'complete' && !hole.currentShotDraft){
+    return;
+  }
   ensureShotDraft(hole);
   const draft = hole.currentShotDraft;
   const el = holeElems();
@@ -623,7 +727,7 @@ function finalizeHoleAuto(){
   const round = getActiveRound();
   const hole = getCurrentHole(round);
   if(!hole.score){
-    hole.score = Number(hole.shots.length) + Number(hole.puttCount || 0) + Number(hole.penaltyStrokes || 0);
+    hole.score = getHoleNonPuttShotCount(hole) + getHolePuttCount(hole) + Number(hole.penaltyStrokes || 0);
   }
   goToNextHole();
 }
@@ -649,11 +753,139 @@ function goToNextHole(){
   }
 }
 document.getElementById('quick-finish-btn').addEventListener('click', ()=>openQuickFinish());
+function completeQuickFinish(hole, score, putts, stayOnScorecard=false){
+  const desiredPutts = Math.max(0, Number(putts || 0));
+  syncLegacyPuttsToShots(hole);
+  const targetShotCount = Math.max(0, Number(score || 0) - Number(hole.penaltyStrokes || 0));
+  const targetNonPuttCount = Math.max(0, targetShotCount - desiredPutts);
+
+  while(getHoleNonPuttShotCount(hole) < targetNonPuttCount){
+    hole.shots.push(createPlaceholderShot(hole, {
+      startLie: normalizeLie(hole.currentLie) === 'green' ? 'Green' : '',
+      notes: 'Added via Quick Finish'
+    }));
+  }
+  while(getShotPuttCount(hole) < desiredPutts){
+    const nextPuttIndex = getShotPuttCount(hole) + 1;
+    hole.shots.push(createPlaceholderShot(hole, {
+      club: 'Putter',
+      endLie: nextPuttIndex === desiredPutts ? 'cup' : '',
+      resultType: nextPuttIndex === desiredPutts ? 'cup' : '',
+      notes: 'Added via Quick Finish'
+    }));
+  }
+
+  renumberHoleShots(hole);
+  hole.puttCount = desiredPutts;
+  hole.score = Number(score);
+  hole.quickFinished = true;
+  hole.currentLie = 'Cup';
+  clearDraft(hole);
+  closeModal();
+  if(stayOnScorecard){
+    saveData();
+    render();
+    renderScorecard();
+  } else {
+    goToNextHole();
+  }
+}
+function openQuickFinishConflictResolver(score, putts, stayOnScorecard=false){
+  const hole = getCurrentHole(getActiveRound());
+  const entries = getConflictEntries(hole);
+  const summary = `
+    <div class="card frost-card">
+      <div class="summary-grid">
+        <div class="summary-chip"><span>Recorded</span><strong>${getHoleRecordedStrokeCount(hole)}</strong></div>
+        <div class="summary-chip"><span>Quick Finish</span><strong>${score}</strong></div>
+        <div class="summary-chip"><span>Recorded Putts</span><strong>${getHolePuttCount(hole)}</strong></div>
+        <div class="summary-chip"><span>Quick Finish Putts</span><strong>${putts ?? '-'}</strong></div>
+      </div>
+    </div>`;
+  const list = entries.length ? entries.map((entry, idx)=>`
+      <div class="score-row">
+        <div>${escapeHtml(entry.label)}</div>
+        <button class="danger conflict-remove-btn" data-idx="${idx}">Remove</button>
+      </div>`).join('') : '<div class="subtle">No removable strokes remain.</div>';
+  openModal('Adjust Recorded Strokes', `
+    <div class="stack">
+      <div class="subtle">Remove only the strokes that should not count for this hole. When the numbers match, apply Quick Finish again.</div>
+      ${summary}
+      ${list}
+      <button id="conflict-apply-btn" class="secondary">Apply Quick Finish</button>
+    </div>`, ()=>{
+    document.querySelectorAll('.conflict-remove-btn').forEach(btn=>{
+      btn.onclick = ()=>{
+        removeConflictEntry(hole, entries[Number(btn.dataset.idx)]);
+        saveData();
+        openQuickFinishConflictResolver(score, putts, stayOnScorecard);
+      };
+    });
+    document.getElementById('conflict-apply-btn').onclick = ()=>{
+      applyQuickFinish(score, putts, stayOnScorecard);
+    };
+  });
+}
+function openQuickFinishConflict(score, putts, stayOnScorecard=false){
+  const hole = getCurrentHole(getActiveRound());
+  openModal('Quick Finish Conflict', `
+    <div class="stack">
+      <div class="subtle">This hole already has <strong>${getHoleRecordedStrokeCount(hole)}</strong> recorded strokes, but Quick Finish is set to <strong>${score}</strong>.</div>
+      <div class="subtle">Choose whether to keep the recorded total or adjust the recorded strokes to match Quick Finish.</div>
+      <button id="qf-keep-recorded-btn" class="secondary">Keep ${getHoleRecordedStrokeCount(hole)} Recorded Strokes</button>
+      <button id="qf-adjust-recorded-btn" class="secondary">Adjust To ${score} Strokes</button>
+    </div>`, ()=>{
+    document.getElementById('qf-keep-recorded-btn').onclick = ()=>{
+      completeQuickFinish(hole, getHoleRecordedStrokeCount(hole), getHolePuttCount(hole), stayOnScorecard);
+    };
+    document.getElementById('qf-adjust-recorded-btn').onclick = ()=>{
+      openQuickFinishConflictResolver(score, putts, stayOnScorecard);
+    };
+  });
+}
+function applyQuickFinish(score, putts, stayOnScorecard=false){
+  const hole = getCurrentHole(getActiveRound());
+  const desiredScore = Number(score);
+  const desiredPutts = putts == null ? getHolePuttCount(hole) : Number(putts);
+  const penalties = Number(hole.penaltyStrokes || 0);
+  if(desiredPutts < 0 || desiredScore < 1) return;
+  if(desiredScore < penalties){
+    openModal('Invalid Score', `
+      <div class="stack">
+        <div class="subtle">The final score cannot be lower than the penalty strokes already recorded on this hole.</div>
+        <button id="invalid-score-close" class="secondary">Okay</button>
+      </div>`, ()=>{
+      document.getElementById('invalid-score-close').onclick = closeModal;
+    });
+    return;
+  }
+  const targetShotCount = desiredScore - penalties;
+  if(desiredPutts > targetShotCount){
+    openModal('Invalid Putts', `
+      <div class="stack">
+        <div class="subtle">Putts cannot be greater than the non-penalty strokes in the hole score.</div>
+        <button id="invalid-putts-close" class="secondary">Okay</button>
+      </div>`, ()=>{
+      document.getElementById('invalid-putts-close').onclick = closeModal;
+    });
+    return;
+  }
+  const currentPuttCount = getHolePuttCount(hole);
+  const currentNonPuttCount = getHoleNonPuttShotCount(hole);
+  const targetNonPuttCount = targetShotCount - desiredPutts;
+  if(currentPuttCount > desiredPutts || currentNonPuttCount > targetNonPuttCount || getHoleRecordedStrokeCount(hole) > desiredScore){
+    openQuickFinishConflict(desiredScore, desiredPutts, stayOnScorecard);
+    return;
+  }
+  completeQuickFinish(hole, desiredScore, desiredPutts, stayOnScorecard);
+}
 function openQuickFinish(prefillScore=null, stayOnScorecard=false){
   const hole = getCurrentHole(getActiveRound());
-  const trackedScore = (hole.shots?.length || 0) + (hole.puttCount || 0) + (hole.penaltyStrokes || 0);
-  let score = prefillScore || hole.score || trackedScore || Number(hole.par || 4) || 4;
-  let putts = hole.puttCount;
+  const trackedScore = getHoleRecordedStrokeCount(hole);
+  const parDefault = Number(hole.par || 4) || 4;
+  const scoreDefault = Math.max(parDefault, Number(hole.score || 0), trackedScore);
+  let score = prefillScore != null ? Number(prefillScore) : scoreDefault;
+  let putts = Math.max(2, getHolePuttCount(hole));
   const puttDisplay = ()=> (putts == null ? '—' : String(putts));
   const html = `
     <div class="stack">
@@ -681,12 +913,7 @@ function openQuickFinish(prefillScore=null, stayOnScorecard=false){
     document.getElementById('putts-plus').onclick = ()=>{ putts = putts == null ? 0 : putts + 1; document.getElementById('quick-putts-display').textContent = puttDisplay(); };
     document.getElementById('putts-minus').onclick = ()=>{ putts = putts == null ? null : (putts <= 0 ? null : putts - 1); document.getElementById('quick-putts-display').textContent = puttDisplay(); };
     document.getElementById('save-hole-score-btn').onclick = ()=>{
-      hole.score = score;
-      if(putts != null) hole.puttCount = putts;
-      hole.quickFinished = true;
-      closeModal();
-      if(stayOnScorecard){ saveData(); renderScorecard(); }
-      else { goToNextHole(); }
+      applyQuickFinish(score, putts, stayOnScorecard);
     };
   });
 }
@@ -843,10 +1070,10 @@ function renderRoundDetail(){
   const fairwayHits = fairwayHitCount > 0 ? fairwayHitCount : null;
   const fairwayMissCount = teeShots.length ? teeShots.filter(s=>['rough','bunker','penalty','recovery'].includes((s.endLie||'').toLowerCase())).length : 0;
   const fairwayMisses = fairwayMissCount > 0 ? fairwayMissCount : null;
-  const puttHoles = round.holes.filter(h=>h.puttCount != null);
-  const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+Number(h.puttCount||0),0)/puttHoles.length).toFixed(1) : null;
+  const puttHoles = round.holes.filter(h=>getHolePuttCount(h) > 0);
+  const avgPutts = puttHoles.length ? (puttHoles.reduce((a,h)=>a+getHolePuttCount(h),0)/puttHoles.length).toFixed(1) : null;
   const totalPen = round.holes.reduce((a,h)=>a+Number(h.penaltyStrokes||0),0);
-  const girMade = round.holes.filter(h=>{ const reachedGreen = h.puttCount != null || ['green','cup'].includes((h.currentLie||'').toLowerCase()) || h.shots.some(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!reachedGreen) return false; const nonPuttStrokes = (h.shots || []).length; return nonPuttStrokes <= (Number(h.par||4)-2); }).length;
+  const girMade = round.holes.filter(h=>{ const reachedGreen = getHolePuttCount(h) > 0 || ['green','cup'].includes((h.currentLie||'').toLowerCase()) || h.shots.some(s=>['green','cup'].includes((s.endLie||'').toLowerCase())); if(!reachedGreen) return false; const nonPuttStrokes = getHoleNonPuttShotCount(h); return nonPuttStrokes <= (Number(h.par||4)-2); }).length;
   const summary = getRoundStats(round);
   const box = (holes, offset=0) => `
     <div class="card stack frost-card" style="gap:6px">
@@ -1252,7 +1479,7 @@ document.getElementById('history-stats-info-btn').addEventListener('click', ()=>
       <div class="subtle"><strong>Avg Drive</strong>: average distance of driver shots hit from the tee when distance data exists.</div>
       <div class="subtle"><strong>Fairways Hit</strong>: tee shots finishing in fairway, first cut, fringe, green, or cup.</div>
       <div class="subtle"><strong>Fairways Missed</strong>: tee shots finishing in rough, bunker, penalty, or recovery.</div>
-      <div class="subtle"><strong>Avg Putts</strong>: average putts per hole using only holes where putts were entered.</div>
+      <div class="subtle"><strong>Avg Putts</strong>: average shots per hole where the club was Putter or the starting lie was Green.</div>
       <div class="subtle"><strong>GIR</strong>: holes where the first shot finishing on the green or in the cup happened in par minus two strokes or better.</div>
     </div>`);
 });
