@@ -48,8 +48,8 @@ h2{font-size:1.5rem}
 button:active{transform:scale(.985)}
 .image-btn{background:transparent;padding:0;border-radius:18px}
 .image-btn img{display:block;width:100%;height:auto}
-.image-btn img,.hero-ball-btn{filter:drop-shadow(0 8px 12px rgba(0,0,0,.12));transition:filter .15s ease, transform .15s ease}
-.image-btn:active img,.hero-ball-btn:active{filter:brightness(.88) drop-shadow(0 6px 8px rgba(0,0,0,.18));transform:scale(.985)}
+.image-btn img,.hero-ball-btn{filter:drop-shadow(0 6px 10px rgba(20,35,18,.16));transition:filter .15s ease, transform .15s ease}
+.image-btn:active img,.hero-ball-btn:active{filter:brightness(.95) drop-shadow(0 4px 7px rgba(20,35,18,.12));transform:scale(.985)}
 .start-round-btn{width:100%}
 .compact-image-btn img{width:100%}
 .footer-art-btn img{width:100%}
@@ -105,10 +105,10 @@ button:active{transform:scale(.985)}
 .current-lie-shell{position:relative;background:transparent;padding:0;border-radius:20px;overflow:hidden}
 .current-lie-shell img{display:block;width:100%;height:auto}
 .current-lie-text{
-  position:absolute;left:50%;right:12%;top:50%;transform:translateY(-50%);
-  font-size:1.85rem;line-height:1;text-align:left;color:#e9cc74;
+  position:absolute;left:52%;right:10%;top:50%;transform:translateY(-47%);
+  font-size:1.85rem;line-height:1.12;text-align:left;color:#e9cc74;
   text-shadow:-1px -1px 0 rgba(44,26,8,.9),1px -1px 0 rgba(44,26,8,.9),-1px 1px 0 rgba(44,26,8,.9),1px 1px 0 rgba(44,26,8,.9),0 3px 6px rgba(0,0,0,.45);
-  font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+  font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 0 5px 4px
 }
 .pin-estimate-box{background:rgba(247,246,239,.86);border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;border:1px solid rgba(29,74,52,.08)}
 .pin-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center}
@@ -170,7 +170,7 @@ button:active{transform:scale(.985)}
   .manual-row{grid-template-columns:1fr}
   .compact-pickers,.pair-row,.footer-art-row,.home-action-grid,.pin-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .gps-quick-row{grid-template-columns:1fr auto;gap:10px}
-  .current-lie-text{font-size:1.45rem;left:50%;right:10%}
+  .current-lie-text{font-size:1.45rem;left:52%;right:8%;padding:2px 0 4px 3px}
   .estimate-value{font-size:1.7rem}
   .hero-ball-btn{font-size:1.7rem}
 }
